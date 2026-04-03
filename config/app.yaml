@@ -1,0 +1,8 @@
+# KPA PoC — application metadata
+# Runtime config (API keys, cache settings) comes from config/.env.secrets
+# See config/.env.secrets.example for required keys
+
+app:
+  name: 'KPA PoC'
+  version: '0.1.0'
+  description: 'On-demand Key Points Analysis'

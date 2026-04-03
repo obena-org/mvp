@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.cache/
+config/.env.secrets
+*.env
+/tmp/kpa-*
