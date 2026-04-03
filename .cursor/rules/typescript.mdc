@@ -1,0 +1,36 @@
+---
+description: TypeScript conventions and code style for this repo
+globs: ["**/*.ts", "**/*.tsx"]
+alwaysApply: false
+---
+
+# TypeScript Conventions
+
+## Compiler settings (tsconfig.json)
+- Target: ES2022, module: NodeNext (use `.js` extensions in imports even for `.ts` source files)
+- Strict mode + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess`
+  - Never use `!` non-null assertions — narrow types properly
+  - Optional properties must not be set to `undefined` explicitly when `exactOptionalPropertyTypes` is on
+  - Array/index access returns `T | undefined`; always check before using
+
+## Module style
+- ESM only (`"type": "module"` in package.json)
+- Import paths must use `.js` extension: `import { foo } from './foo.js'`
+- No CommonJS (`require`, `module.exports`)
+
+## Import ordering (enforced by ESLint)
+Imports must be grouped and alphabetized within groups:
+1. Node built-ins (`node:fs`, `node:path`, …)
+2. External packages
+3. Internal/relative imports
+
+## Code style (Prettier)
+- **Tabs** for indentation in `.ts`/`.js` files
+- **2 spaces** for `.json`/`.yaml` files
+- Single quotes, trailing commas, 100-char line width
+
+## Patterns
+- Use Zod for all schema definitions; infer TypeScript types from schemas with `z.infer<>`
+- Prefer `const` assertions and discriminated unions over enums
+- Use `pino` logger (`src/logger.ts`) — not `console.*`
+- All config/secrets via `src/settings.ts` singleton — never `process.env` directly

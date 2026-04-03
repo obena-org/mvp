@@ -1,0 +1,43 @@
+---
+description: Architecture patterns for the KPA pipeline (src/ files)
+globs: ["src/**/*.ts"]
+alwaysApply: false
+---
+
+# Architecture Patterns
+
+## Caching (`src/cache.ts`)
+- Flat-file JSON disk cache keyed by a stable hash of the request
+- All external API calls (Firecrawl, Claude) must go through the cache unless `forceRefresh: true`
+- Cache dir defaults to `CACHE_DIR` env var; managed by `src/settings.ts`
+- Cache files are invalidated by TTL (`SEARCH_CACHE_TTL_SECONDS`) for search results
+
+## Extraction strategies (`src/extraction/`)
+Two interchangeable strategies behind the same interface:
+
+| Strategy | File | Description |
+|----------|------|-------------|
+| `bottom-up` | `extraction/bottom-up.ts` | Pass 1: extract per-source in parallel → Pass 2: synthesize all results |
+| `top-down` | `extraction/top-down.ts` | Pass 1: identify key points globally → Pass 2: retrieve supporting quotes |
+
+- Both receive `Source[]` and return `KeyPoint[]`
+- Add new strategies as new files; wire them into `pipeline.ts` switch
+
+## Prompts (`src/prompts.ts`)
+- Keep all Claude prompt strings here — not inline in extraction files
+- Prompts are intentionally kept identical to the Python `rnd-kpa` reference implementation
+
+## Data models (`src/models.ts`)
+All types defined as Zod schemas; TypeScript types derived via `z.infer<>`:
+```
+Source → KeyPoint[] (each with Quote[]) → KPAResult
+```
+
+## Pipeline orchestrator (`src/pipeline.ts`)
+- Single `runKpa(query, opts)` function
+- Responsible for: cache lookup → fetch sources → route to extraction strategy → cache write → return
+- Keep orchestration logic here; keep side-effects (API calls, disk I/O) in their respective modules
+
+## Error handling
+- Throw typed errors from API wrappers; catch and log at the CLI/pipeline boundary
+- Never swallow errors silently — always log with the pino logger before re-throwing or returning a fallback

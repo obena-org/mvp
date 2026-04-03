@@ -1,0 +1,30 @@
+---
+description: OBENA KPA project overview, stack, and key conventions
+alwaysApply: true
+---
+
+# OBENA Key Points Analysis (KPA)
+
+TypeScript MVP that distills op-ed/news content on a topic into structured key points with attributed quotes.
+
+## Pipeline flow
+1. `fetcher.ts` — Firecrawl search API (opinion-filter) → `Source[]`
+2. `pipeline.ts` — orchestrates fetching + extraction, handles disk caching
+3. `extraction/bottom-up.ts` or `extraction/top-down.ts` — Claude extracts `KeyPoint[]` with `Quote[]`
+4. Returns typed `KPAResult` (defined in `models.ts`)
+
+## Public API
+- `pipeline(query, opts?)` exported from `src/index.ts`
+- CLI entry point: `src/cli.ts` via `pnpm kpa "<query>"`
+
+## Tech stack
+- **Runtime**: Node.js + `tsx` (no build step; direct TS execution)
+- **AI**: Anthropic SDK (`claude-sonnet-4-6` default, configurable via `CLAUDE_MODEL`)
+- **Scraping**: Firecrawl JS SDK
+- **Validation**: Zod (all external data must go through a Zod schema)
+- **Logging**: Pino (`src/logger.ts`) — never use `console.*` except in `display.ts`, `logger.ts`, `cli.ts`
+- **Config**: `src/settings.ts` Zod singleton — all env vars loaded there; never read `process.env` directly elsewhere
+- **Tests**: Vitest (`pnpm test`)
+
+## Package manager
+pnpm only — do not use npm or yarn commands.
