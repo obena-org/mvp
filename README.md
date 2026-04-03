@@ -88,15 +88,34 @@ for (const kp of result.keyPoints) {
 }
 ```
 
+**Web UI (SvelteKit):** The `web/` app is a small interface for the same pipeline: enter a topic, pick **bottom-up** or **top-down**, then **Analyse**. Results show key points, quotes, source counts, and whether the run was served from cache. The address bar includes `?topic=…` so you can bookmark or share a link; loading a URL with that query runs the analysis on page load.
+
+Development — run the API and the SvelteKit dev server in two terminals (Vite proxies `/api` to the Hono server):
+
+```bash
+pnpm dev:api    # Hono + pipeline on http://localhost:3000 (override with PORT)
+pnpm dev:web    # SvelteKit + Vite (default http://localhost:5173 — see terminal output)
+```
+
+Open the dev URL Vite prints, ensure `pnpm dev:api` is running first, then use the form.
+
+Production — build the static site and serve it together with the API from one process:
+
+```bash
+pnpm build:web
+pnpm start      # API + static UI from web/build (default http://localhost:3000)
+```
+
 ---
 
 ## Project Structure
 
-```
+```text
 mvp/
 ├── src/
 │   ├── models.ts           # KPAResult, KeyPoint, Quote (Zod schemas)
 │   ├── pipeline.ts         # runKpa() orchestrator
+│   ├── server.ts           # Hono: POST /api/kpa + static web/build
 │   ├── fetcher.ts          # Firecrawl wrapper with opinion-filter + caching
 │   ├── prompts.ts          # Claude extraction prompts (identical to rnd-kpa)
 │   ├── cache.ts            # Flat-file JSON disk cache (mirrors rnd-kpa cache.py)
@@ -108,6 +127,7 @@ mvp/
 │   └── extraction/
 │       ├── bottom-up.ts    # Parallel pass-1, single synthesis pass-2
 │       └── top-down.ts     # Two-pass: identify key points, then retrieve quotes
+├── web/                    # SvelteKit 5 + Tailwind (pnpm -C web … or root dev:web / build:web)
 ├── config/
 │   ├── .env.secrets.example
 │   └── .env.secrets        # API keys (not committed)
@@ -132,17 +152,18 @@ Pre-push: full `tsc --noEmit`.
 
 ## Tech Stack
 
-| Tool | Purpose |
-|------|---------|
-| TypeScript 5.8 | Runtime |
-| pnpm | Package manager |
-| Firecrawl (`@mendable/firecrawl-js`) | Content discovery + scraping |
-| Anthropic SDK (`@anthropic-ai/sdk`) | Claude API (LLM extraction) |
-| Zod | Output schema + validation |
-| Flat-file JSON cache | Disk-based API response cache |
-| ESLint + Prettier | Linting + formatting (mirrors `obena/apps/frontend`) |
-| Husky + lint-staged | Git hooks |
-| vitest | Tests |
+| Tool                                 | Purpose                                              |
+| ------------------------------------ | ---------------------------------------------------- |
+| TypeScript 5.8                       | Runtime                                              |
+| pnpm                                 | Package manager                                      |
+| Firecrawl (`@mendable/firecrawl-js`) | Content discovery + scraping                         |
+| Anthropic SDK (`@anthropic-ai/sdk`)  | Claude API (LLM extraction)                          |
+| Zod                                  | Output schema + validation                           |
+| Flat-file JSON cache                 | Disk-based API response cache                        |
+| ESLint + Prettier                    | Linting + formatting (mirrors `obena/apps/frontend`) |
+| Husky + lint-staged                  | Git hooks                                            |
+| vitest                               | Tests                                                |
+| SvelteKit + Vite + Tailwind (`web/`) | Browser UI for KPA (dev proxy to `pnpm dev:api`)     |
 
 ---
 
