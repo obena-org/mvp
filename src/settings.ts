@@ -19,6 +19,7 @@ const SettingsSchema = z.object({
 	searchCacheTtlSeconds: z.coerce.number().default(7 * 24 * 3600),
 	numSources: z.coerce.number().default(20),
 	claudeModel: z.string().default('claude-sonnet-4-6'),
+	port: z.coerce.number().default(3000),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -44,6 +45,7 @@ function loadSettings(): Settings {
 		searchCacheTtlSeconds: process.env['SEARCH_CACHE_TTL_SECONDS'],
 		numSources: process.env['NUM_SOURCES'],
 		claudeModel: process.env['CLAUDE_MODEL'],
+		port: process.env['PORT'],
 	};
 	const result = SettingsSchema.safeParse(raw);
 	if (!result.success) {

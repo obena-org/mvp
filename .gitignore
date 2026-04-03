@@ -4,3 +4,5 @@ dist/
 config/.env.secrets
 *.env
 /tmp/kpa-*
+web/.svelte-kit/
+web/build/
