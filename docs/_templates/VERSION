@@ -1,0 +1,11 @@
+# Template Version
+# 
+# This file tracks which version of docs-central templates are currently synced.
+# Templates are synchronized from: git@github.com:obena-org/docs-central.git
+#
+# DO NOT EDIT TEMPLATES DIRECTLY IN THIS REPOSITORY
+# Submit template changes to docs-central and re-sync.
+
+VERSION=v0.6.3
+SYNCED_AT=2026-04-03T22:50:00Z
+SOURCE=git@github.com:obena-org/docs-central.git
