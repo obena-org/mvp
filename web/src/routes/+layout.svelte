@@ -44,15 +44,7 @@
         <i class="fa-solid {dark ? 'fa-sun' : 'fa-moon'} text-sm"></i>
       </button>
     </div>
+  </header>
 
-    <button
-      onclick={toggleTheme}
-      class="flex h-8 w-8 items-center justify-center rounded-full text-fg3 transition-colors hover:bg-bg2 hover:text-fg1"
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      <i class="fa-solid {dark ? 'fa-sun' : 'fa-moon'} text-sm"></i>
-    </button>
-  </div>
-</header>
-
-{@render children()}
+  {@render children()}
+</div>
