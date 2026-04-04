@@ -1,0 +1,143 @@
+# Consumer: run sync → tools/standards/ruff.toml; point Ruff at it from the repo root pyproject.toml.
+# Example (consumer pyproject.toml):
+#   [tool.ruff]
+#   extend = "tools/standards/ruff.toml"
+#
+#   [tool.ruff.lint.extend-per-file-ignores]
+#   "tests/**" = ["S101", "PLR2004"]
+# docs/adoption.md
+# ⚠️ Do not edit the synced file in the consumer; change this repo and re-sync.
+
+fix = true # Let Ruff fix trivials on save/CI
+line-length = 88
+target-version = "py313"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[lint]
+
+select = [
+  "RUF",         # ruff-specific
+  # ---------------- Performance & correctness ----------------
+  "A",           # flake8-builtins (no shadowing built-ins, like `open` or `input`)
+  "B",           # flake8-bugbear (performance, correctness)
+  "C4",          # flake8-comprehensions
+  "F",           # pyflakes (real bugs)
+  "PERF",        # perflint (cheap performance checks)
+  "ISC",         # implicit string concat (line breaks)
+  "PL",          # pylint subset (incl. PLR2004 "magic value in comparison")
+  "PD",          # pandas-vet (pandas data validation, catches common anti-patterns)
+  "DTZ",         # flake8-datetimez (forces timezone-aware datetime objects)
+  "ASYNC",       # flake8-async (avoid blocking event loop with async misusage) -- IMPORTANT ❗
+  # "FBT",         # flake8-boolean-trap (e.g., boolean arguments, which can lead to over-branching)
+  # "RSE",         # fake8-raise (e.g., raise ValueError(...) not raise ValueError)
+  # "ARG",         # flake8-unused-arguments
+  "SLF",         # flake8-self (don't access private fields)
+  # "LOG",         # flake8-logging-format (enforce consistent logging format)
+  "F403",        # `import * used`
+  "F405",        # `name may be undefined from star import`
+#   "T201",        # Ban print() statements
+  # ---------------- Type checking ----------------
+  "ANN",         # flake8-annotations (type hints *everywhere*)
+  "TC",         # flake8-type-checking (force heavy typing-only imports under TYPE_CHECKING)
+  "FA",          # flake8-future-annotations (include `from __future__ import annotations`!)  
+  # ---------------- Naming & Docstrings ----------------
+  "N",           # pep8-naming (naming)
+  "D",           # pydocstyle (docstrings)
+  # "DOC",         # 🧪 flake8-docstring-complete (stricter alternative to D; preview only)
+  # ---------------- Formatting & imports ----------------
+  "E",           # pycodestyle (formatting/smells)
+  "W",           # pycodestyle warnings
+  "I",           # isort (import ordering)
+  "TID",         # flake8-tidy-imports (no parent imports)
+  "Q",           # flake8-quotes
+  # ---------------- Best practices ----------------
+  "TRY",         # exception best practices
+  # ---------------- Anti-code complexity ----------------
+  "SIM",         # flake8-simplify
+  "PL",          # Pylint (Design & Complexity Signals)
+  "C90",         # McCabe cyclomatic complexity 
+  "RET",         # Return structure (too many return statements)
+  # ---------------- Security ----------------
+  "S",           # bandit (security)
+  # ---------------- Modernization ----------------
+  "UP",          # pyupgrade (force modern syntax)
+  "PTH",         # prefer pathlib over os.path
+]
+
+# GLOBAL IGNORES TO CLEAN UP NOISY FEEDBACK
+# 🎗️ We will gradually achieve 100% on all these and then enable them.
+ignore = [ 
+  "ANN204",      # Enforced `-> None` on `__init__()` etc 🆗 unnecessary
+  "PLR0913",     # Too many arguments 🆗 okay with keyword arguments
+  # -----------------------------------
+  "TRY003",      # Avoid specifying long messages outside the exception class
+  "TRY301",      # Abstract `raise` to an inner function
+  "PLW0603",     # global-statement
+  "S608",        # hardcoded-sql-expression
+  "S108",        # hardcoded-temp-file
+  "S301",        # suspicious-pickle-usage
+  "S607",        # start-process-with-partial-path
+]
+
+[lint.flake8-builtins]
+# Ignore built-ins that are commonly used in our codebase (and rarely shadow anything used)
+builtins-ignorelist = ["id", "min", "max"]
+
+[lint.per-file-ignores]
+
+# Globs here are resolved relative to this file’s directory once consumers use `extend` 
+# (vendored as tools/standards/ruff.toml → base directory tools/standards/). `/**/tests/**` 
+# and `/**/examples/**` match those folder names at any depth (the `/` prefix makes the 
+# glob inclusive of the repo root). 
+
+# Repos SHOULD prefer trees named tests/ and examples/.
+
+# Selectively disable in testing code...
+"/**/tests/**" = [
+    "SLF",       # flake8-self (don't access private fields)
+    "S101",      # Use of `assert` detected
+    "S311",      # random OK for test fixtures/simulation (not crypto)
+    "S106",      # secret:// URIs and test config values, not real passwords
+    "ASYNC240",  # pathlib.Path in async tests OK for small temp files
+]
+# Demo/simulation code
+"/**/examples/**" = [
+    "S311",      # random OK for demo simulation (not crypto)
+    "S106",      # placeholder config values in demos
+]
+
+[lint.pydocstyle]
+# Enforce Google-style doc-strings across the codebase
+convention = "google"
+
+[lint.flake8-type-checking]
+# Type-checking blocks: encourage imports under TYPE_CHECKING
+strict = true
+
+[lint.isort]
+# Import ordering: stdlib → external packages → o → first-party → relative
+# ----------------------------------------------------------------------------
+# Note: we intentionally treat `o` (our shared core library) as its own section,
+# separate from both third-party dependencies and repo-local first-party code.
+# Our rationale:
+# - `o` is "first-party" in ownership, but not local to this repo; it is a
+#   shared, versioned library used across multiple repos.
+# - Keeping it distinct makes architectural boundaries visible in imports:
+#     external deps → shared platform (`o`) → local application code
+# - This improves readability and reinforces layering (apps depend on `o`,
+#   not vice versa), acting as a lightweight signal of dependency direction.
+
+sections = { "o" = ["o"] } # Same effect as classic isort `known-*`
+required-imports = ["from __future__ import annotations"]
+section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "o",
+  "first-party",
+  "local-folder",
+]

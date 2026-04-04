@@ -9,11 +9,13 @@ pnpm kpa "Iran"               # run CLI (tsx, no build step)
 pnpm typecheck                # tsc --noEmit
 pnpm lint                     # eslint src
 pnpm format                   # prettier --write src
+pnpm lint:md                  # markdownlint-cli2 (see .markdownlint-cli2.jsonc)
+pnpm format:md                # markdownlint-cli2 --fix
 pnpm test                     # vitest run
 pnpm test:watch               # vitest watch
 ```
 
-Pre-commit hook: Prettier + ESLint auto-fix on staged files.
+Pre-commit hook: Prettier + ESLint + markdownlint-cli2 auto-fix on staged files.
 Pre-push hook: full `tsc --noEmit`.
 
 ## Architecture

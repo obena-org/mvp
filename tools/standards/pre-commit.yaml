@@ -1,0 +1,35 @@
+# Consumer: merge the `repos:` blocks below into root .pre-commit-config.yaml (shared hooks first, then local).
+# Markdownlint must use the root entrypoint (which `extends` the vendored rules), not only tools/standards/... .
+# Example hook snippet (already included below; shown for clarity):
+#   - id: markdownlint
+#     args: [--config, .markdownlint.yaml]
+# Root .markdownlint.yaml example:
+#   extends: "tools/standards/markdownlint.yaml"
+# (Vendored file has no leading dot; see README.md § “Vendored filenames and dotfiles”.)
+# docs/adoption.md
+# ⚠️ Do not edit the synced copy in the consumer; change this file and re-sync.
+
+minimum_pre_commit_version: '3.5.0'
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.2
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        types: [python]
+        stages: [pre-commit]
+      - id: ruff
+        name: ruff lint
+        types: [python]
+        args: [--fix]
+        stages: [pre-commit]
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.48.0
+    hooks:
+      - id: markdownlint
+        name: markdownlint
+        types: [markdown]
+        args: [--config, .markdownlint.yaml]
