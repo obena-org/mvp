@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './lib/ambient/ambient.css';
 
 /* Use data-theme="dark" on <html> instead of the media query for dark mode. */
 @variant dark (&:where([data-theme=dark], [data-theme=dark] *));
@@ -74,68 +75,6 @@
     letter-spacing: 0.03em;
   }
 
-  /* Abstract ambient blobs: organic shapes + multiply/screen so blue ∩ red → purple.
-	   Sizes, blur, and motion use viewport units (no px caps) so the look scales with the window. */
-  .ambient-layer {
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    /* Let large filter: blur() extend past the box; html has overflow-x: hidden */
-    overflow: visible;
-    pointer-events: none;
-    /* Match page base so blend modes read correctly */
-    background: var(--color-bg1);
-    isolation: isolate;
-    /* Blur scales with viewport; clamp avoids unusable extremes on tiny/tall windows */
-    --ambient-blur: clamp(3.5rem, 17vmin, 15rem);
-  }
-
-  .ambient-blob {
-    position: absolute;
-    filter: blur(var(--ambient-blur));
-    /* border-radius morphs interpolate per-corner (safe). Animating clip-path: polygon()
-		   between different shapes is not: each vertex lerps in 2D, edges cross → glitches. */
-    will-change: transform, border-radius;
-  }
-
-  /* Light: multiply on white — soft blue × soft red ≈ purple in overlaps */
-  .ambient-blob--blue {
-    /* vmin keeps blob scale tied to the smaller window dimension (stable on ultrawide) */
-    width: 145vmin;
-    height: 120vmin;
-    top: -35vh;
-    left: -42vw;
-    background: rgb(96 165 250);
-    /* Superellipse-style blob; matches ambient-blue 0% / 100% */
-    border-radius: 44% 56% 53% 47% / 49% 45% 55% 51%;
-    mix-blend-mode: multiply;
-    /* Slightly higher than before so heavy blur doesn’t read flat */
-    opacity: 0.25;
-    animation: ambient-blue 40s ease-in-out infinite;
-  }
-
-  .ambient-blob--red {
-    width: 140vmin;
-    height: 125vmin;
-    top: 18vh;
-    right: -48vw;
-    background: rgb(248 113 113);
-    border-radius: 52% 48% 50% 50% / 42% 58% 44% 56%;
-    mix-blend-mode: multiply;
-    opacity: 0.25;
-    animation: ambient-red 46s ease-in-out infinite;
-  }
-
-  /* Dark: screen on near-black — overlap lifts toward magenta / violet */
-  [data-theme='dark'] .ambient-blob--blue {
-    mix-blend-mode: screen;
-    opacity: 0.2;
-  }
-
-  [data-theme='dark'] .ambient-blob--red {
-    mix-blend-mode: screen;
-    opacity: 0.18;
-  }
 
   /* Glass panels — shared by cards / form */
   .glass-panel {
@@ -167,52 +106,3 @@
   }
 }
 
-@keyframes ambient-blue {
-  0%,
-  100% {
-    transform: translate(0, 0) rotate(-3deg) scale(1);
-    border-radius: 44% 56% 53% 47% / 49% 45% 55% 51%;
-  }
-  20% {
-    transform: translate(12%, 9%) rotate(11deg) scale(1.1);
-    border-radius: 22% 78% 28% 72% / 68% 32% 58% 42%;
-  }
-  40% {
-    transform: translate(5%, -15%) rotate(-12deg) scale(0.86);
-    border-radius: 78% 22% 72% 28% / 28% 72% 35% 65%;
-  }
-  60% {
-    transform: translate(-10%, 6%) rotate(7deg) scale(1.08);
-    border-radius: 18% 82% 45% 55% / 52% 22% 78% 48%;
-  }
-  80% {
-    transform: translate(8%, -8%) rotate(-6deg) scale(0.94);
-    border-radius: 62% 38% 12% 88% / 40% 60% 70% 30%;
-  }
-}
-
-@keyframes ambient-red {
-  0%,
-  100% {
-    transform: translate(0, 0) rotate(4deg) scale(1.02);
-    border-radius: 52% 48% 50% 50% / 42% 58% 44% 56%;
-  }
-  25% {
-    transform: translate(-16%, 8%) rotate(-14deg) scale(0.84);
-    border-radius: 82% 18% 35% 65% / 25% 75% 48% 52%;
-  }
-  50% {
-    transform: translate(-4%, -16%) rotate(10deg) scale(1.14);
-    border-radius: 30% 70% 82% 18% / 58% 42% 22% 78%;
-  }
-  75% {
-    transform: translate(10%, -4%) rotate(-5deg) scale(0.92);
-    border-radius: 48% 52% 20% 80% / 72% 28% 62% 38%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ambient-blob {
-    animation: none;
-  }
-}

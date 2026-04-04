@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../app.css';
   import { onMount } from 'svelte';
+  import { FoamBubbles } from '$lib/ambient/components/foam';
   import type { Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -22,8 +23,18 @@
 </script>
 
 <div class="ambient-layer" aria-hidden="true">
-  <div class="ambient-blob ambient-blob--blue"></div>
-  <div class="ambient-blob ambient-blob--red"></div>
+  <div class="ambient-blob-motion ambient-blob-motion--blue">
+    <div class="ambient-blob ambient-blob--blue"></div>
+    <div class="ambient-blob-foam ambient-blob-foam--blue">
+      <FoamBubbles tone="blue" />
+    </div>
+  </div>
+  <div class="ambient-blob-motion ambient-blob-motion--red">
+    <div class="ambient-blob ambient-blob--red"></div>
+    <div class="ambient-blob-foam ambient-blob-foam--red">
+      <FoamBubbles tone="red" />
+    </div>
+  </div>
 </div>
 
 <div class="relative z-10 min-h-dvh">
