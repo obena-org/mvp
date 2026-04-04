@@ -14,7 +14,13 @@ import { z } from 'zod';
 
 import { type KPACache, getCache } from '../cache.js';
 import { log } from '../logger.js';
-import { KeyPointSchema, QuoteSchema, type KeyPoint, type Source } from '../models.js';
+import {
+	KeyPointSchema,
+	QuoteSchema,
+	type KeyPoint,
+	type OnProgress,
+	type Source,
+} from '../models.js';
 import { PASS1_TD_V, PASS2_TD_V, pass1TopDown, pass2TopDown } from '../prompts.js';
 import { type Settings, getSettings } from '../settings.js';
 
@@ -195,8 +201,9 @@ export async function extract(
 	sources: Source[],
 	query: string,
 	forceRefresh = false,
-	opts: { cache?: KPACache; settings?: Settings } = {},
+	opts: { cache?: KPACache; settings?: Settings; onProgress?: OnProgress } = {},
 ): Promise<KeyPoint[]> {
+	const { onProgress } = opts;
 	const cache = opts.cache ?? getCache();
 	const settings = opts.settings ?? getSettings();
 	const client = new Anthropic({ apiKey: settings.anthropicApiKey });
@@ -207,5 +214,6 @@ export async function extract(
 		return [];
 	}
 
+	onProgress?.({ type: 'status', phase: 'synthesizing', message: 'Retrieving supporting quotes…' });
 	return _pass2(rawKps, sources, query, client, cache, forceRefresh, settings);
 }

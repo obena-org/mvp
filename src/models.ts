@@ -39,3 +39,14 @@ export const KPAResultSchema = z.object({
 	cacheHit: z.boolean().default(false),
 });
 export type KPAResult = z.infer<typeof KPAResultSchema>;
+
+// ── Progress streaming ─────────────────────────────────────────────────────────
+
+export type ProgressEvent =
+	| { type: 'status'; phase: 'searching' | 'processing' | 'synthesizing'; message: string }
+	| { type: 'source-done'; completed: number; total: number; url: string; ok: boolean }
+	| { type: 'cache-hit'; result: KPAResult }
+	| { type: 'complete'; result: KPAResult }
+	| { type: 'error'; message: string };
+
+export type OnProgress = (event: ProgressEvent) => void;

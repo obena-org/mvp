@@ -12,6 +12,7 @@ import {
 	KPAResultSchema,
 	type KeyPoint,
 	type KPAResult,
+	type OnProgress,
 	type Quote,
 	type Source,
 } from './models.js';
@@ -42,13 +43,16 @@ export async function runKpa(
 	strategy: 'bottom-up' | 'top-down' = 'bottom-up',
 	numSources?: number,
 	forceRefresh = false,
-	opts: { cache?: KPACache; settings?: Settings } = {},
+	opts: { cache?: KPACache; settings?: Settings; onProgress?: OnProgress } = {},
 ): Promise<KPAResult> {
+	const { onProgress } = opts;
 	const cache = opts.cache ?? getCache();
 	const settings = opts.settings ?? getSettings();
 	const n = numSources ?? settings.numSources;
 
 	log.info({ query, strategy, numSources: n }, 'pipeline_start');
+
+	onProgress?.({ type: 'status', phase: 'searching', message: 'Searching for sources…' });
 
 	const { sources, cacheHit: searchCacheHit } = await searchSources(query, n, forceRefresh, {
 		cache,
@@ -67,9 +71,15 @@ export async function runKpa(
 		});
 	}
 
+	onProgress?.({ type: 'status', phase: 'processing', message: 'Processing sources…' });
+
 	const extractor = strategy === 'bottom-up' ? extractBottomUp : extractTopDown;
 	const keyPoints = applySourceAttribution(
-		await extractor(sources, query, forceRefresh, { cache, settings }),
+		await extractor(sources, query, forceRefresh, {
+			cache,
+			settings,
+			...(onProgress !== undefined && { onProgress }),
+		}),
 		sources,
 	);
 
