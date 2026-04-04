@@ -6,7 +6,13 @@
  * Returns a cancel function; the caller must invoke it on terminal events.
  */
 
-import type { KPAErrorResponse, KPARequest, KPAResult, ProgressEvent } from '$lib/models';
+import type {
+	HistoryEntry,
+	KPAErrorResponse,
+	KPARequest,
+	KPAResult,
+	ProgressEvent,
+} from '$lib/models';
 
 export interface StreamKpaCallbacks {
 	onProgress: (event: ProgressEvent) => void;
@@ -48,6 +54,16 @@ export function streamKpa(req: KPARequest, callbacks: StreamKpaCallbacks): () =>
 	};
 
 	return () => es.close();
+}
+
+export async function fetchHistory(): Promise<HistoryEntry[]> {
+	try {
+		const res = await fetch('/api/kpa/history');
+		if (!res.ok) return [];
+		return res.json() as Promise<HistoryEntry[]>;
+	} catch {
+		return [];
+	}
 }
 
 export async function fetchKpa(req: KPARequest): Promise<KPAResult> {

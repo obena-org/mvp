@@ -36,6 +36,13 @@ export interface KPAResult {
 	cacheHit: boolean;
 }
 
+export interface HistoryEntry {
+	query: string;
+	strategy: 'bottom-up' | 'top-down';
+	/** When the underlying search data was fetched (cache storedAt for hits, now for fresh). */
+	searchFetchedAt: string;
+}
+
 export interface KPARequest {
 	topic: string;
 	options?: {

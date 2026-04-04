@@ -3,7 +3,7 @@
  * Mirrors rnd-kpa/src/rnd_kpa/pipeline.py.
  */
 
-import { type KPACache, getCache } from './cache.js';
+import { type KPACache, getCache, saveHistory } from './cache.js';
 import { extract as extractBottomUp } from './extraction/bottom-up.js';
 import { extract as extractTopDown } from './extraction/top-down.js';
 import { searchSources } from './fetcher.js';
@@ -94,7 +94,7 @@ export async function runKpa(
 
 	if (sources.length === 0) {
 		log.warn({ query }, 'no_sources_found');
-		return KPAResultSchema.parse({
+		const emptyResult = KPAResultSchema.parse({
 			query,
 			strategy,
 			keyPoints: [],
@@ -104,6 +104,16 @@ export async function runKpa(
 			searchFetchedAt: searchFetchedAt.toISOString(),
 			cacheHit: searchCacheHit,
 		});
+		try {
+			saveHistory(settings.cacheDir, {
+				query: emptyResult.query,
+				strategy: emptyResult.strategy,
+				searchFetchedAt: emptyResult.searchFetchedAt,
+			});
+		} catch (err) {
+			log.warn({ err }, 'history_save_failed');
+		}
+		return emptyResult;
 	}
 
 	onProgress?.({ type: 'status', phase: 'processing', message: 'Processing sources…' });
@@ -130,5 +140,14 @@ export async function runKpa(
 	});
 
 	log.info({ query, nKeyPoints: keyPoints.length }, 'pipeline_complete');
+	try {
+		saveHistory(settings.cacheDir, {
+			query: result.query,
+			strategy: result.strategy,
+			searchFetchedAt: result.searchFetchedAt,
+		});
+	} catch (err) {
+		log.warn({ err }, 'history_save_failed');
+	}
 	return result;
 }
