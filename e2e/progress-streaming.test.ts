@@ -43,6 +43,22 @@ const MOCK_RESULT = {
 		},
 	],
 	sourcesAnalyzed: 2,
+	sourceUsage: [
+		{
+			url: 'https://example.com/article',
+			title: 'Example headline',
+			outlet: 'Global Times',
+			quoteCount: 1,
+			keyPointCount: 1,
+		},
+		{
+			url: 'https://unused.example/post',
+			title: 'Unused article',
+			outlet: 'Unused News',
+			quoteCount: 0,
+			keyPointCount: 0,
+		},
+	],
 	generatedAt: new Date().toISOString(),
 	cacheHit: false,
 };

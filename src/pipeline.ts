@@ -15,6 +15,7 @@ import {
 	type OnProgress,
 	type Quote,
 	type Source,
+	type SourceUsage,
 } from './models.js';
 import { type Settings, getSettings } from './settings.js';
 
@@ -36,6 +37,34 @@ function _mergeQuoteAttribution(q: Quote, src: Source | undefined): Quote {
 	const author = src.author != null && src.author !== '' ? src.author : q.author;
 	const outlet = src.outlet != null && src.outlet !== '' ? src.outlet : q.outlet;
 	return { ...q, author, outlet };
+}
+
+/**
+ * Builds per-source usage from fetched sources and final key points (quote URLs).
+ * Order matches `sources`. Sources never cited in output show zero counts.
+ */
+export function computeSourceUsage(sources: Source[], keyPoints: KeyPoint[]): SourceUsage[] {
+	const quoteCountByUrl = new Map<string, number>();
+	const keyPointCountByUrl = new Map<string, number>();
+
+	for (const kp of keyPoints) {
+		const urlsInKp = new Set<string>();
+		for (const q of kp.quotes) {
+			quoteCountByUrl.set(q.url, (quoteCountByUrl.get(q.url) ?? 0) + 1);
+			urlsInKp.add(q.url);
+		}
+		for (const u of urlsInKp) {
+			keyPointCountByUrl.set(u, (keyPointCountByUrl.get(u) ?? 0) + 1);
+		}
+	}
+
+	return sources.map((s) => ({
+		url: s.url,
+		title: s.title != null && s.title !== '' ? s.title : null,
+		outlet: s.outlet != null && s.outlet !== '' ? s.outlet : null,
+		quoteCount: quoteCountByUrl.get(s.url) ?? 0,
+		keyPointCount: keyPointCountByUrl.get(s.url) ?? 0,
+	}));
 }
 
 export async function runKpa(
@@ -66,6 +95,7 @@ export async function runKpa(
 			strategy,
 			keyPoints: [],
 			sourcesAnalyzed: 0,
+			sourceUsage: [],
 			generatedAt: new Date().toISOString(),
 			cacheHit: searchCacheHit,
 		});
@@ -88,6 +118,7 @@ export async function runKpa(
 		strategy,
 		keyPoints,
 		sourcesAnalyzed: sources.length,
+		sourceUsage: computeSourceUsage(sources, keyPoints),
 		generatedAt: new Date().toISOString(),
 		cacheHit: searchCacheHit,
 	});

@@ -16,11 +16,20 @@ export interface KeyPoint {
 	quotes: Quote[];
 }
 
+export interface SourceUsage {
+	url: string;
+	title: string | null;
+	outlet: string | null;
+	quoteCount: number;
+	keyPointCount: number;
+}
+
 export interface KPAResult {
 	query: string;
 	strategy: 'bottom-up' | 'top-down';
 	keyPoints: KeyPoint[];
 	sourcesAnalyzed: number;
+	sourceUsage: SourceUsage[];
 	generatedAt: string;
 	cacheHit: boolean;
 }
