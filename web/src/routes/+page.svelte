@@ -52,8 +52,17 @@
     return `${Math.floor(seconds / 86400)}d ago`;
   }
 
-  function attribution(author?: string | null, outlet?: string | null): string {
-    return [author, outlet].filter(Boolean).join(' · ');
+  /** DuckDuckGo favicon proxy from article URL hostname (no backend / schema dependency). */
+  function faviconUrl(url: string): string | null {
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+      const host = u.hostname.replace(/^www\./, '');
+      if (!host) return null;
+      return `https://icons.duckduckgo.com/ip3/${host}.ico`;
+    } catch {
+      return null;
+    }
   }
 </script>
 
@@ -179,14 +188,49 @@
 
             <div class="flex flex-col gap-3 pl-8">
               {#each kp.quotes as quote}
+                {@const quoteFavicon = faviconUrl(quote.url)}
                 <blockquote class="rounded-r-lg border-l-2 border-accent/50 bg-bg2 py-3 pl-4 pr-4">
                   <p class="mb-2 text-sm italic leading-relaxed text-fg2">"{quote.text}"</p>
                   <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    {#if attribution(quote.author, quote.outlet)}
-                      <span class="text-fg3">
-                        —&nbsp;<span class="font-medium text-fg2"
-                          >{attribution(quote.author, quote.outlet)}</span
-                        >
+                    {#if quote.author || quote.outlet || quoteFavicon}
+                      <span class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fg3">
+                        <span aria-hidden="true">—</span>
+                        {#if quote.author}
+                          <span class="font-medium text-fg2">{quote.author}</span>
+                        {/if}
+                        {#if quote.author && (quote.outlet || quoteFavicon)}
+                          <span class="text-fg4" aria-hidden="true">·</span>
+                        {/if}
+                        {#if quote.outlet}
+                          {#if quoteFavicon}
+                            <img
+                              src={quoteFavicon}
+                              alt=""
+                              width="16"
+                              height="16"
+                              loading="lazy"
+                              decoding="async"
+                              class="h-4 w-4 shrink-0 rounded-sm"
+                              onerror={(e) => {
+                                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          {/if}
+                          <span class="font-medium text-fg2">{quote.outlet}</span>
+                        {:else if quoteFavicon}
+                          <img
+                            src={quoteFavicon}
+                            alt=""
+                            width="16"
+                            height="16"
+                            loading="lazy"
+                            decoding="async"
+                            class="h-4 w-4 shrink-0 rounded-sm"
+                            onerror={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        {/if}
                       </span>
                     {/if}
                     <a
