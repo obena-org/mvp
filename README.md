@@ -142,10 +142,12 @@ mvp/
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # eslint src
 pnpm format      # prettier --write src
+pnpm lint:md     # markdownlint-cli2
+pnpm format:md   # markdownlint-cli2 --fix
 pnpm test        # vitest run
 ```
 
-Pre-commit (Husky): Prettier + ESLint auto-fix on staged files.
+Pre-commit (Husky): Prettier + ESLint + markdownlint-cli2 auto-fix on staged files.
 Pre-push: full `tsc --noEmit`.
 
 ---
@@ -160,7 +162,8 @@ Pre-push: full `tsc --noEmit`.
 | Anthropic SDK (`@anthropic-ai/sdk`)  | Claude API (LLM extraction)                          |
 | Zod                                  | Output schema + validation                           |
 | Flat-file JSON cache                 | Disk-based API response cache                        |
-| ESLint + Prettier                    | Linting + formatting (mirrors `obena/apps/frontend`) |
+| ESLint + Prettier                    | TS/JS/JSON/YAML formatting + lint (mirrors `obena/apps/frontend`) |
+| markdownlint-cli2                    | Markdown lint + fix (extends `tools/standards/markdownlint.yaml`) |
 | Husky + lint-staged                  | Git hooks                                            |
 | vitest                               | Tests                                                |
 | SvelteKit + Vite + Tailwind (`web/`) | Browser UI for KPA (dev proxy to `pnpm dev:api`)     |

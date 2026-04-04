@@ -1,0 +1,51 @@
+# Consumer: sync → tools/standards/markdownlint.yaml; add a repo-root .markdownlint.yaml that pulls it in.
+# Example (consumer .markdownlint.yaml — path is relative to repo root):
+#   extends: "tools/standards/markdownlint.yaml"
+#   # MD013: false          # optional local overrides beside extends
+# Leading dot here matches markdownlint conventions; sync writes tools/standards/markdownlint.yaml (no dot).
+# See README.md § “Vendored filenames and dotfiles”; docs/adoption.md.
+# ⚠️ Do not edit the synced copy in the consumer; change this file and re-sync.
+
+default: true
+
+# Do not reflow prose / enforce line length
+MD013: false
+
+# Allow inline HTML (common in docs, ADRs)
+MD033: false
+
+# Prefer leading/trailing table pipes (GFM); each document picks a consistent style
+MD055:
+  style: 'consistent'
+
+# Column/pipe alignment (MD060) is off: even with style "any", mixed tables still
+# trigger "aligned" subset checks. Prefer compact/stable tables by convention; see docs.
+MD060: false
+
+# --- Rules off or relaxed for incremental hygiene ---
+
+# Snippets, bios, includes, and command stubs often start without an H1
+MD041: false
+
+# Fenced blocks without a language tag (large backlog; enable when ready)
+MD040: false
+
+# FAQ-style **Q:** / bold lead-ins are intentional, not headings
+MD036: false
+
+# Long guides repeat section names (e.g. "Usage") in different contexts
+MD024:
+  siblings_only: true
+
+# Some long documents use multiple H1-equivalent sections by design
+MD025: false
+
+# Blockquote blank-line rules are noisy for quoted correspondence
+MD028: false
+
+# Emphasis/strong style consistency (underscore vs asterisk) — high churn, low value here
+MD049: false
+MD050: false
+
+# Code block style (indented vs fenced) — leave to authors
+MD046: false

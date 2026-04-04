@@ -1,0 +1,5 @@
+# Root markdownlint entrypoint — Ruff-like "shared base + thin local delta".
+# Vendored policy is a straight byte copy at tools/standards/markdownlint.yaml (from sync; no leading dot there).
+# See standards repo README (section on vendored filenames and dotfiles).
+# Add repo-only MD### keys beside `extends` when you need local overrides.
+extends: 'tools/standards/markdownlint.yaml'

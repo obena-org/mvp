@@ -1,0 +1,5 @@
+{
+  // Lint tracked-ish paths only: honor .gitignore (root has node_modules/, web/build/, etc.).
+  "globs": ["**/*.md"],
+  "gitignore": true,
+}
