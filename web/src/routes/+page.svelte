@@ -85,6 +85,26 @@
     return `${Math.floor(seconds / 86400)}d ago`;
   }
 
+  /**
+   * Append a Scroll To Text Fragment so supporting browsers jump to and highlight the quote.
+   * @see https://wicg.github.io/scroll-to-text-fragment/
+   */
+  function articleUrlWithSnippetHighlight(baseUrl: string, snippet: string): string {
+    const trimmed = snippet.trim();
+    if (!trimmed) return baseUrl;
+    const maxLen = 200;
+    const text = trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+    try {
+      const u = new URL(baseUrl);
+      if (u.hash.includes(':~:text=')) return baseUrl;
+      const encoded = encodeURIComponent(text);
+      u.hash = u.hash ? `${u.hash.slice(1)}:~:text=${encoded}` : `:~:text=${encoded}`;
+      return u.toString();
+    } catch {
+      return baseUrl;
+    }
+  }
+
   /** DuckDuckGo favicon proxy from article URL hostname (no backend / schema dependency). */
   function faviconUrl(url: string): string | null {
     try {
@@ -318,6 +338,7 @@
             <div class="flex flex-col gap-3 pl-8">
               {#each kp.quotes as quote}
                 {@const quoteFavicon = faviconUrl(quote.url)}
+                {@const articleHref = articleUrlWithSnippetHighlight(quote.url, quote.text)}
                 <blockquote
                   class="glass-inset rounded-r-lg border-l-2 border-accent/50 py-3 pl-4 pr-4"
                 >
@@ -365,7 +386,7 @@
                       </span>
                     {/if}
                     <a
-                      href={quote.url}
+                      href={articleHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       class="ml-auto flex items-center gap-1 font-medium text-accent hover:underline"
