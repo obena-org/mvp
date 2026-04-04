@@ -31,6 +31,13 @@
 <div class="ambient-layer" aria-hidden="true">
   <div class="ambient-blob ambient-blob--blue"></div>
   <div class="ambient-blob ambient-blob--red"></div>
+  <div class="ambient-bubble ambient-bubble--1"></div>
+  <div class="ambient-bubble ambient-bubble--2"></div>
+  <div class="ambient-bubble ambient-bubble--3"></div>
+  <div class="ambient-bubble ambient-bubble--4"></div>
+  <div class="ambient-bubble ambient-bubble--5"></div>
+  <div class="ambient-bubble ambient-bubble--6"></div>
+  <div class="ambient-bubble ambient-bubble--7"></div>
 </div>
 
 <div class="relative z-10 min-h-dvh">

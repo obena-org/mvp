@@ -134,6 +134,84 @@
     opacity: 0.18;
   }
 
+  /* Subtle floating bubbles — tiny soft circles that drift upward */
+  .ambient-bubble {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(2px);
+    will-change: transform, opacity;
+    /* Bubbles blend softly into the background */
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+
+  [data-theme='dark'] .ambient-bubble {
+    mix-blend-mode: screen;
+  }
+
+  .ambient-bubble--1 {
+    width: 3.5vmin;
+    height: 3.5vmin;
+    left: 15%;
+    bottom: -5%;
+    background: rgb(96 165 250 / 0.12);
+    animation: bubble-rise-1 28s ease-in-out infinite;
+  }
+
+  .ambient-bubble--2 {
+    width: 2.2vmin;
+    height: 2.2vmin;
+    left: 62%;
+    bottom: -5%;
+    background: rgb(248 113 113 / 0.10);
+    animation: bubble-rise-2 34s ease-in-out infinite 6s;
+  }
+
+  .ambient-bubble--3 {
+    width: 4vmin;
+    height: 4vmin;
+    left: 38%;
+    bottom: -5%;
+    background: rgb(168 130 250 / 0.08);
+    animation: bubble-rise-3 42s ease-in-out infinite 12s;
+  }
+
+  .ambient-bubble--4 {
+    width: 1.8vmin;
+    height: 1.8vmin;
+    left: 80%;
+    bottom: -5%;
+    background: rgb(96 165 250 / 0.10);
+    animation: bubble-rise-1 32s ease-in-out infinite 18s;
+  }
+
+  .ambient-bubble--5 {
+    width: 2.8vmin;
+    height: 2.8vmin;
+    left: 48%;
+    bottom: -5%;
+    background: rgb(248 113 113 / 0.08);
+    animation: bubble-rise-2 38s ease-in-out infinite 3s;
+  }
+
+  .ambient-bubble--6 {
+    width: 1.5vmin;
+    height: 1.5vmin;
+    left: 25%;
+    bottom: -5%;
+    background: rgb(168 130 250 / 0.10);
+    animation: bubble-rise-3 26s ease-in-out infinite 9s;
+  }
+
+  .ambient-bubble--7 {
+    width: 2.5vmin;
+    height: 2.5vmin;
+    left: 72%;
+    bottom: -5%;
+    background: rgb(96 165 250 / 0.06);
+    animation: bubble-rise-1 36s ease-in-out infinite 22s;
+  }
+
   /* Glass panels — shared by cards / form */
   .glass-panel {
     @apply rounded-2xl border shadow-sm backdrop-blur-xl;
@@ -282,8 +360,73 @@
   }
 }
 
+/* Bubble rise animations — gentle upward drift with slight horizontal wander */
+@keyframes bubble-rise-1 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.4);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-55vh) translateX(3vw) scale(1);
+    opacity: 0.7;
+  }
+  85% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-115vh) translateX(-1vw) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes bubble-rise-2 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.3);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  45% {
+    transform: translateY(-48vh) translateX(-4vw) scale(1.1);
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.2;
+  }
+  100% {
+    transform: translateY(-112vh) translateX(2vw) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes bubble-rise-3 {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.5);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  55% {
+    transform: translateY(-52vh) translateX(5vw) scale(0.9);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: translateY(-118vh) translateX(-2vw) scale(0.4);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ambient-blob {
+  .ambient-blob,
+  .ambient-bubble {
     animation: none;
   }
 }
