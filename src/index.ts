@@ -18,6 +18,7 @@ export interface PipelineOptions {
 	strategy?: 'bottom-up' | 'top-down';
 	numSources?: number;
 	forceRefresh?: boolean;
+	/** Firecrawl + extraction (Claude) disk cache. */
 	cache?: KPACache;
 	settings?: Settings;
 }
