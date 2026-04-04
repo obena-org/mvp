@@ -105,7 +105,7 @@
 <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
   <!-- Search form -->
   <form
-    class="mb-8 rounded-2xl border border-bg3 bg-bg1 p-4 shadow-sm"
+    class="glass-panel mb-8 p-4"
     onsubmit={(e) => {
       e.preventDefault();
       void submit();
@@ -119,7 +119,8 @@
         disabled={loading}
         aria-label="Topic to analyse"
         required
-        class="flex-1 rounded-full border border-bg3 bg-bg2 px-4 py-2 text-sm text-fg1 placeholder:text-fg4
+        class="flex-1 rounded-full border border-bg3/60 bg-bg2/70 px-4 py-2 text-sm text-fg1 placeholder:text-fg4
+               backdrop-blur-sm
                transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30
                disabled:opacity-50"
       />
@@ -154,7 +155,7 @@
   <!-- Loading -->
   {#if loading}
     <div
-      class="flex flex-col gap-2.5 rounded-xl border border-bg3 bg-bg1 px-5 py-4 text-sm text-fg3"
+      class="glass-panel flex flex-col gap-2.5 px-5 py-4 text-sm text-fg3"
       aria-live="polite"
     >
       <div class="flex items-center gap-3">
@@ -188,8 +189,8 @@
   <!-- Error -->
   {#if error}
     <div
-      class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700
-             dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400"
+      class="mb-4 flex items-start gap-3 rounded-xl border border-red-300/40 bg-red-50/75 px-4 py-3 text-sm text-red-700
+             backdrop-blur-xl dark:border-red-900/50 dark:bg-red-950/35 dark:text-red-400"
       role="alert"
     >
       <i class="fa-solid fa-circle-exclamation mt-0.5 flex-shrink-0"></i>
@@ -229,7 +230,7 @@
         <p class="text-sm italic text-fg3">No key points extracted for this topic.</p>
       {:else}
         {#each result.keyPoints as kp, i}
-          <article class="mb-4 rounded-xl border border-bg3 bg-bg1 p-5 shadow-sm">
+          <article class="glass-panel mb-4 p-5">
             <h2 class="mb-2 flex items-start gap-3 text-base font-semibold text-fg1">
               <span
                 class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full
@@ -244,7 +245,9 @@
             <div class="flex flex-col gap-3 pl-8">
               {#each kp.quotes as quote}
                 {@const quoteFavicon = faviconUrl(quote.url)}
-                <blockquote class="rounded-r-lg border-l-2 border-accent/50 bg-bg2 py-3 pl-4 pr-4">
+                <blockquote
+                  class="glass-inset rounded-r-lg border-l-2 border-accent/50 py-3 pl-4 pr-4"
+                >
                   <p class="mb-2 text-sm italic leading-relaxed text-fg2">"{quote.text}"</p>
                   <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     {#if quote.author || quote.outlet || quoteFavicon}
