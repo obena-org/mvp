@@ -83,7 +83,11 @@ export async function runKpa(
 
 	onProgress?.({ type: 'status', phase: 'searching', message: 'Searching for sources…' });
 
-	const { sources, cacheHit: searchCacheHit } = await searchSources(query, n, forceRefresh, {
+	const {
+		sources,
+		cacheHit: searchCacheHit,
+		fetchedAt: searchFetchedAt,
+	} = await searchSources(query, n, forceRefresh, {
 		cache,
 		settings,
 	});
@@ -97,6 +101,7 @@ export async function runKpa(
 			sourcesAnalyzed: 0,
 			sourceUsage: [],
 			generatedAt: new Date().toISOString(),
+			searchFetchedAt: searchFetchedAt.toISOString(),
 			cacheHit: searchCacheHit,
 		});
 	}
@@ -120,6 +125,7 @@ export async function runKpa(
 		sourcesAnalyzed: sources.length,
 		sourceUsage: computeSourceUsage(sources, keyPoints),
 		generatedAt: new Date().toISOString(),
+		searchFetchedAt: searchFetchedAt.toISOString(),
 		cacheHit: searchCacheHit,
 	});
 

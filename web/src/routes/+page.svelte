@@ -314,7 +314,7 @@
             {result.cacheHit ? 'cached' : 'fresh'}
           </span>
           <span class="text-fg4">·</span>
-          <span class="text-fg4">{age(result.generatedAt)}</span>
+          <span class="text-fg4">{age(result.searchFetchedAt)}</span>
         </div>
       </div>
 

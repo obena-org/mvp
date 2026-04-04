@@ -51,8 +51,8 @@ function _rule(label: string, width = 100): string {
 }
 
 export function printResult(result: KPAResult, write: (s: string) => void = console.log): void {
-	const ts = new Date(result.generatedAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-	const age = _age(new Date(result.generatedAt));
+	const ts = new Date(result.searchFetchedAt).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+	const age = _age(new Date(result.searchFetchedAt));
 	const cacheLabel = result.cacheHit ? `cached · ${ts} (${age})` : `fresh · ${ts}`;
 
 	write('');
