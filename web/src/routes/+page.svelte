@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getContext, onDestroy, onMount } from 'svelte';
-  import { fly } from 'svelte/transition';
+  import { fly, slide } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
   import { goto } from '$app/navigation';
   import { fetchHistory, streamKpa } from '$lib/api.js';
@@ -25,6 +25,18 @@
 
   let cancelStream: (() => void) | null = null;
   let history = $state<HistoryEntry[]>([]);
+
+  /** Expanded state for each key point card (animated via `slide`); reset when a new result loads. */
+  let keyPointOpen = $state<Record<number, boolean>>({});
+
+  $effect(() => {
+    if (result) keyPointOpen = {};
+  });
+
+  function toggleKeyPoint(index: number) {
+    const next = !(keyPointOpen[index] ?? false);
+    keyPointOpen = { ...keyPointOpen, [index]: next };
+  }
 
   function loadFromHistory(entry: HistoryEntry) {
     topic = entry.query;
@@ -415,82 +427,111 @@
         <p class="text-sm italic text-fg3">No key points extracted for this topic.</p>
       {:else}
         {#each result.keyPoints as kp, i}
-          <article class="glass-panel mb-4 p-5">
-            <h2 class="mb-2 flex items-start gap-3 text-base font-semibold text-fg1">
+          <article class="glass-panel mb-4 overflow-hidden p-0">
+            <button
+              type="button"
+              class="flex w-full cursor-pointer items-start gap-3 p-5 text-left outline-none
+                     focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2
+                     focus-visible:ring-offset-bg1"
+              aria-expanded={keyPointOpen[i] ?? false}
+              aria-controls={`kpa-kp-panel-${i}`}
+              id={`kpa-kp-trigger-${i}`}
+              onclick={() => toggleKeyPoint(i)}
+            >
               <span
                 class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full
                        bg-accent text-[10px] font-bold text-white"
+                aria-hidden="true"
               >
                 {i + 1}
               </span>
-              {kp.title}
-            </h2>
-            <p class="mb-4 pl-8 text-sm leading-relaxed text-fg2">{kp.summary}</p>
-
-            <div class="flex flex-col gap-3 pl-8">
-              {#each kp.quotes as quote}
-                {@const quoteFavicon = faviconUrl(quote.url)}
-                {@const articleHref = articleUrlWithSnippetHighlight(quote.url, quote.text)}
-                <blockquote
-                  class="glass-inset rounded-r-lg border-l-2 border-accent/50 py-3 pl-4 pr-4"
+              <span class="flex min-w-0 flex-1 items-start justify-between gap-3">
+                <h2 class="text-base font-semibold leading-snug text-fg1">{kp.title}</h2>
+                <span
+                  class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center text-fg3 transition-transform duration-200
+                         {keyPointOpen[i] ? 'rotate-180' : ''}"
+                  aria-hidden="true"
                 >
-                  <p class="mb-2 text-sm italic leading-relaxed text-fg2">"{quote.text}"</p>
-                  <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                    {#if quote.author || quote.outlet || quoteFavicon}
-                      <span class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fg3">
-                        <span aria-hidden="true">—</span>
-                        {#if quote.author}
-                          <span class="font-medium text-fg2">{quote.author}</span>
-                        {/if}
-                        {#if quote.author && (quote.outlet || quoteFavicon)}
-                          <span class="text-fg4" aria-hidden="true">·</span>
-                        {/if}
-                        {#if quote.outlet}
-                          {#if quoteFavicon}
-                            <img
-                              src={quoteFavicon}
-                              alt=""
-                              width="16"
-                              height="16"
-                              loading="lazy"
-                              decoding="async"
-                              class="h-4 w-4 shrink-0 rounded-sm"
-                              onerror={(e) => {
-                                (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                          {/if}
-                          <span class="font-medium text-fg2">{quote.outlet}</span>
-                        {:else if quoteFavicon}
-                          <img
-                            src={quoteFavicon}
-                            alt=""
-                            width="16"
-                            height="16"
-                            loading="lazy"
-                            decoding="async"
-                            class="h-4 w-4 shrink-0 rounded-sm"
-                            onerror={(e) => {
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        {/if}
-                      </span>
-                    {/if}
-                    <a
-                      href={articleHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="ml-auto flex items-center gap-1 font-medium text-accent hover:underline"
-                      title={quote.url}
+                  <i class="fa-solid fa-chevron-down text-xs"></i>
+                </span>
+              </span>
+            </button>
+            {#if keyPointOpen[i]}
+              <div
+                id={`kpa-kp-panel-${i}`}
+                role="region"
+                aria-labelledby={`kpa-kp-trigger-${i}`}
+                class="border-t border-bg3/40 px-5 pb-5 pt-3"
+                transition:slide={{ duration: 220, easing: cubicOut }}
+              >
+                <p class="mb-4 pl-8 text-sm leading-relaxed text-fg2">{kp.summary}</p>
+
+                <div class="flex flex-col gap-3 pl-8">
+                  {#each kp.quotes as quote}
+                    {@const quoteFavicon = faviconUrl(quote.url)}
+                    {@const articleHref = articleUrlWithSnippetHighlight(quote.url, quote.text)}
+                    <blockquote
+                      class="glass-inset rounded-r-lg border-l-2 border-accent/50 py-3 pl-4 pr-4"
                     >
-                      Read article
-                      <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </a>
-                  </footer>
-                </blockquote>
-              {/each}
-            </div>
+                      <p class="mb-2 text-sm italic leading-relaxed text-fg2">"{quote.text}"</p>
+                      <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                        {#if quote.author || quote.outlet || quoteFavicon}
+                          <span class="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 text-fg3">
+                            <span aria-hidden="true">—</span>
+                            {#if quote.author}
+                              <span class="font-medium text-fg2">{quote.author}</span>
+                            {/if}
+                            {#if quote.author && (quote.outlet || quoteFavicon)}
+                              <span class="text-fg4" aria-hidden="true">·</span>
+                            {/if}
+                            {#if quote.outlet}
+                              {#if quoteFavicon}
+                                <img
+                                  src={quoteFavicon}
+                                  alt=""
+                                  width="16"
+                                  height="16"
+                                  loading="lazy"
+                                  decoding="async"
+                                  class="h-4 w-4 shrink-0 rounded-sm"
+                                  onerror={(e) => {
+                                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              {/if}
+                              <span class="font-medium text-fg2">{quote.outlet}</span>
+                            {:else if quoteFavicon}
+                              <img
+                                src={quoteFavicon}
+                                alt=""
+                                width="16"
+                                height="16"
+                                loading="lazy"
+                                decoding="async"
+                                class="h-4 w-4 shrink-0 rounded-sm"
+                                onerror={(e) => {
+                                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            {/if}
+                          </span>
+                        {/if}
+                        <a
+                          href={articleHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="ml-auto flex items-center gap-1 font-medium text-accent hover:underline"
+                          title={quote.url}
+                        >
+                          Read article
+                          <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                      </footer>
+                    </blockquote>
+                  {/each}
+                </div>
+              </div>
+            {/if}
           </article>
         {/each}
       {/if}
