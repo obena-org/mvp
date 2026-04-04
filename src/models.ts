@@ -35,6 +35,7 @@ export const KPAResultSchema = z.object({
 	keyPoints: z.array(KeyPointSchema),
 	sourcesAnalyzed: z.number(),
 	generatedAt: z.string().datetime(),
+	/** True when the Firecrawl search response was served from disk cache (not full-run cache). */
 	cacheHit: z.boolean().default(false),
 });
 export type KPAResult = z.infer<typeof KPAResultSchema>;

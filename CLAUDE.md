@@ -22,7 +22,7 @@ Pre-push hook: full `tsc --noEmit`.
 
 ```text
 src/index.ts          — public API: pipeline(query, opts?)
-src/pipeline.ts       — runKpa() orchestrator (cache → fetch → extract → cache)
+src/pipeline.ts       — runKpa() orchestrator (fetch → extract; no full-run result cache)
 src/models.ts         — Zod schemas: Source, KeyPoint, Quote, KPAResult
 src/fetcher.ts        — Firecrawl wrapper (opinion-filter + disk cache)
 src/cache.ts          — flat-file JSON disk cache keyed by stable hash

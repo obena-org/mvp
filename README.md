@@ -88,7 +88,7 @@ for (const kp of result.keyPoints) {
 }
 ```
 
-**Web UI (SvelteKit):** The `web/` app is a small interface for the same pipeline: enter a topic, pick **bottom-up** or **top-down**, then **Analyse**. Results show key points, quotes, source counts, and whether the run was served from cache. The address bar includes `?topic=…` so you can bookmark or share a link; loading a URL with that query runs the analysis on page load.
+**Web UI (SvelteKit):** The `web/` app is a small interface for the same pipeline: enter a topic, pick **bottom-up** or **top-down**, then **Analyse**. Results show key points, quotes, source counts, and whether the Firecrawl search step used disk cache. The address bar includes `?topic=…` so you can bookmark or share a link; loading a URL with that query runs the analysis on page load.
 
 Development — run the API and the SvelteKit dev server in two terminals (Vite proxies `/api` to the Hono server):
 
