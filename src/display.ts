@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 
-import type { KPAResult } from './models.js';
+import type { KPAResult, SourceUsage } from './models.js';
 
 function _age(dt: Date): string {
 	const seconds = Math.floor((Date.now() - dt.getTime()) / 1000);
@@ -20,6 +20,26 @@ function _age(dt: Date): string {
 	}
 	const d = Math.floor(seconds / 86400);
 	return `${d} day${d !== 1 ? 's' : ''} ago`;
+}
+
+function _host(url: string): string {
+	try {
+		return new URL(url).hostname.replace(/^www\./, '') || url;
+	} catch {
+		return url;
+	}
+}
+
+function _formatSourceUsageLine(s: SourceUsage): string {
+	const title = s.title ?? chalk.dim('(no title)');
+	const pub = s.outlet ?? _host(s.url);
+	const stats =
+		s.quoteCount === 0 && s.keyPointCount === 0
+			? chalk.dim('not cited in output')
+			: chalk.dim(
+					`${s.quoteCount} quote${s.quoteCount !== 1 ? 's' : ''} · ${s.keyPointCount} key point${s.keyPointCount !== 1 ? 's' : ''}`,
+				);
+	return `  ${title}\n  ${chalk.dim(pub)} · ${stats}\n  ${chalk.dim(s.url)}`;
 }
 
 function _rule(label: string, width = 100): string {
@@ -48,19 +68,29 @@ export function printResult(result: KPAResult, write: (s: string) => void = cons
 
 	if (result.keyPoints.length === 0) {
 		write(chalk.yellow('\nNo key points extracted.'));
-		return;
+	} else {
+		for (const [i, kp] of result.keyPoints.entries()) {
+			write('');
+			write(_rule(`${i + 1}. ${kp.title}`));
+			write(`  ${kp.summary}`);
+			for (const q of kp.quotes) {
+				write('');
+				write(chalk.italic(`  "${q.text}"`));
+				const attribution = [q.author, q.outlet].filter(Boolean).join(' · ');
+				if (attribution) write(chalk.dim(`  — ${attribution}`));
+				write(chalk.dim(`  ${q.url}`));
+			}
+		}
 	}
 
-	for (const [i, kp] of result.keyPoints.entries()) {
-		write('');
-		write(_rule(`${i + 1}. ${kp.title}`));
-		write(`  ${kp.summary}`);
-		for (const q of kp.quotes) {
+	write('');
+	write(_rule('Sources fetched'));
+	if (result.sourceUsage.length === 0) {
+		write(chalk.dim('  (none)'));
+	} else {
+		for (const s of result.sourceUsage) {
 			write('');
-			write(chalk.italic(`  "${q.text}"`));
-			const attribution = [q.author, q.outlet].filter(Boolean).join(' · ');
-			if (attribution) write(chalk.dim(`  — ${attribution}`));
-			write(chalk.dim(`  ${q.url}`));
+			write(_formatSourceUsageLine(s));
 		}
 	}
 	write('');

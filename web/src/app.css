@@ -162,6 +162,52 @@
     border-color: color-mix(in srgb, var(--color-bg3) 50%, rgba(255, 255, 255, 0.06));
     background: color-mix(in srgb, var(--color-bg2) 45%, transparent);
   }
+
+  /* Modal drawer for source list — native dialog + styled backdrop */
+  .kpa-sources-dialog {
+    margin: 0;
+    max-height: 100dvh;
+    border: none;
+    padding: 0;
+    background: transparent;
+  }
+
+  /* Light scrim only — no backdrop-filter so the page behind stays sharp and readable */
+  .kpa-sources-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.08);
+    backdrop-filter: none;
+  }
+
+  [data-theme='dark'] .kpa-sources-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  /* Drawer shell: solid surface (no backdrop-blur) so we don’t smear the viewport at the panel edge */
+  .kpa-sources-panel {
+    @apply rounded-2xl border shadow-sm;
+    border-color: color-mix(in srgb, var(--color-bg1) 55%, rgba(255, 255, 255, 0.35));
+    background: var(--color-bg1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.35) inset,
+      0 8px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme='dark'] .kpa-sources-panel {
+    border-color: color-mix(in srgb, var(--color-bg3) 40%, rgba(255, 255, 255, 0.08));
+    background: var(--color-bg1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .kpa-sources-panel .glass-inset {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-bg2) 88%, transparent);
+  }
+
+  [data-theme='dark'] .kpa-sources-panel .glass-inset {
+    background: color-mix(in srgb, var(--color-bg2) 80%, transparent);
+  }
 }
 
 @keyframes ambient-blue {

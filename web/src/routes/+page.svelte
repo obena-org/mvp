@@ -2,7 +2,8 @@
   import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { streamKpa } from '$lib/api.js';
-  import type { KPAResult, ProgressPhase } from '$lib/models';
+  import { portal } from '$lib/portal';
+  import type { KPAResult, ProgressPhase, SourceUsage } from '$lib/models';
 
   let topic = $state('');
   let strategy = $state<'bottom-up' | 'top-down'>('bottom-up');
@@ -94,6 +95,28 @@
       return `https://icons.duckduckgo.com/ip3/${host}.ico`;
     } catch {
       return null;
+    }
+  }
+
+  function openSourcesDialog() {
+    const el = document.getElementById('kpa-sources-dialog');
+    if (el instanceof HTMLDialogElement) el.showModal();
+  }
+
+  function sourceUsageLabel(s: SourceUsage): string {
+    if (s.quoteCount === 0 && s.keyPointCount === 0) return 'Not cited in this analysis';
+    const q =
+      s.quoteCount === 1 ? '1 quote' : `${s.quoteCount} quotes`;
+    const k =
+      s.keyPointCount === 1 ? '1 key point' : `${s.keyPointCount} key points`;
+    return `${q} · ${k}`;
+  }
+
+  function displayHost(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url;
     }
   }
 </script>
@@ -209,7 +232,57 @@
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg3">
           <span>{result.strategy}</span>
           <span class="text-fg4">·</span>
-          <span>{result.sourcesAnalyzed} sources</span>
+          {#if result.sourceUsage.length > 0}
+            {@const n = result.sourceUsage.length}
+            <button
+              type="button"
+              onclick={openSourcesDialog}
+              class="inline-flex max-w-full items-center gap-2 rounded-full bg-transparent py-1 pl-1 pr-2.5 text-left font-medium text-fg2
+                     outline-none transition-colors duration-200
+                     hover:bg-black/10 dark:hover:bg-white/10
+                     focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-bg1"
+              aria-label={n <= 4
+                ? `View ${n} ${n === 1 ? 'source' : 'sources'}`
+                : `View all ${n} sources`}
+            >
+              <span class="flex shrink-0 -space-x-1.5" aria-hidden="true">
+                {#each result.sourceUsage.slice(0, 4) as s, i (s.url)}
+                  {@const stackIcon = faviconUrl(s.url)}
+                  <span
+                    class="relative inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-bg1 bg-bg2 ring-1 ring-bg3/40"
+                    style="z-index: {i + 1}"
+                  >
+                    {#if stackIcon}
+                      <img
+                        src={stackIcon}
+                        alt=""
+                        width="20"
+                        height="20"
+                        loading="lazy"
+                        decoding="async"
+                        class="h-full w-full rounded-full object-contain"
+                        onerror={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    {:else}
+                      <i class="fa-solid fa-newspaper text-[9px] text-fg4"></i>
+                    {/if}
+                  </span>
+                {/each}
+              </span>
+              <span class="min-w-0 text-fg2">
+                {#if n <= 4}
+                  {n}
+                  {n === 1 ? 'source' : 'sources'}
+                {:else}
+                  and {n - 4} more {n - 4 === 1 ? 'source' : 'sources'}
+                {/if}
+              </span>
+            </button>
+          {:else}
+            <span>{result.sourcesAnalyzed} sources</span>
+          {/if}
           <span class="text-fg4">·</span>
           <span
             class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium
@@ -309,5 +382,119 @@
         {/each}
       {/if}
     </section>
+
+    {#if result.sourceUsage.length > 0}
+      <!--
+        Do not put `flex` / `fixed` / block layout on <dialog>: Tailwind `display:flex` overrides
+        the UA `dialog:not([open]) { display:none }`, so close() removes [open] but the pane stays visible.
+      -->
+      <dialog
+        use:portal
+        id="kpa-sources-dialog"
+        class="kpa-sources-dialog m-0 max-h-none w-full max-w-none border-0 bg-transparent p-0"
+        aria-labelledby="sources-dialog-title"
+      >
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <div
+          class="fixed inset-0 z-[100] flex h-full w-full max-w-none items-stretch justify-end bg-transparent"
+          onclick={(e) => {
+            if (e.target === e.currentTarget) {
+              const d = document.getElementById('kpa-sources-dialog');
+              if (d instanceof HTMLDialogElement) d.close();
+            }
+          }}
+        >
+          <div
+            class="kpa-sources-panel flex h-full max-h-dvh w-full max-w-md flex-col border-0 shadow-2xl sm:rounded-l-2xl sm:border-l sm:border-bg3/60"
+          >
+          <div
+            class="flex shrink-0 items-start justify-between gap-3 border-b border-bg3/50 px-5 py-4"
+          >
+            <div>
+              <h2 id="sources-dialog-title" class="font-montserrat text-lg font-semibold text-fg1">
+                Sources
+              </h2>
+              <p class="mt-1 text-xs leading-snug text-fg3">
+                Articles retrieved for this search and how often each appears in the analysis.
+              </p>
+            </div>
+            <form method="dialog">
+              <button
+                type="submit"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-fg3 transition-colors hover:bg-bg2 hover:text-fg1"
+                aria-label="Close"
+              >
+                <i class="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </form>
+          </div>
+          <ul class="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
+            {#each result.sourceUsage as s (s.url)}
+              {@const icon = faviconUrl(s.url)}
+              {@const articleLabel = s.title?.trim() ? s.title : 'Article'}
+              <li class="mb-2.5 last:mb-0">
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="glass-inset group relative block overflow-hidden rounded-xl p-3 no-underline transition-all duration-200 ease-out
+                         hover:border-accent/40 hover:shadow-md
+                         dark:hover:border-accent/35
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45 focus-visible:ring-offset-2
+                         focus-visible:ring-offset-bg1"
+                  aria-label={`${articleLabel} — opens in new tab`}
+                >
+                  <!-- Overlay: same 10% black/white as sources chip — layers on glass-inset without replacing its background -->
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none absolute inset-0 rounded-[inherit] bg-transparent transition-colors duration-200
+                           group-hover:bg-black/10 dark:group-hover:bg-white/10"
+                  ></span>
+                  <div class="relative z-10 flex min-w-0 gap-3">
+                    <div
+                      class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-bg3/60 bg-bg1 transition-colors group-hover:border-accent/30"
+                    >
+                      {#if icon}
+                        <img
+                          src={icon}
+                          alt=""
+                          width="32"
+                          height="32"
+                          loading="lazy"
+                          decoding="async"
+                          class="h-8 w-8 object-contain"
+                          onerror={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      {:else}
+                        <i class="fa-solid fa-newspaper text-fg4"></i>
+                      {/if}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-semibold leading-snug text-fg1">
+                        {s.title ?? 'Untitled article'}
+                      </p>
+                      <p class="mt-0.5 text-xs text-fg3">
+                        {s.outlet ?? displayHost(s.url)}
+                      </p>
+                      <p class="mt-2 text-xs text-fg4">{sourceUsageLabel(s)}</p>
+                    </div>
+                    <div
+                      class="shrink-0 self-center text-fg4 transition-colors group-hover:text-accent"
+                      aria-hidden="true"
+                    >
+                      <i class="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                    </div>
+                  </div>
+                </a>
+              </li>
+            {/each}
+          </ul>
+          </div>
+        </div>
+      </dialog>
+    {/if}
   {/if}
 </main>

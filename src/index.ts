@@ -11,7 +11,7 @@ import type { KPAResult } from './models.js';
 import { runKpa } from './pipeline.js';
 import type { Settings } from './settings.js';
 
-export type { KPAResult, KeyPoint, Quote, Source } from './models.js';
+export type { KPAResult, KeyPoint, Quote, Source, SourceUsage } from './models.js';
 export { printResult } from './display.js';
 
 export interface PipelineOptions {

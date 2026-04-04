@@ -29,11 +29,25 @@ export const KeyPointSchema = z.object({
 });
 export type KeyPoint = z.infer<typeof KeyPointSchema>;
 
+/** One fetched article with usage stats from the final key points (no body text). */
+export const SourceUsageSchema = z.object({
+	url: z.string(),
+	title: z.string().nullable(),
+	outlet: z.string().nullable(),
+	/** Quotes in the output that cite this URL. */
+	quoteCount: z.number().int().nonnegative(),
+	/** Key points that include at least one quote from this URL. */
+	keyPointCount: z.number().int().nonnegative(),
+});
+export type SourceUsage = z.infer<typeof SourceUsageSchema>;
+
 export const KPAResultSchema = z.object({
 	query: z.string(),
 	strategy: z.enum(['bottom-up', 'top-down']),
 	keyPoints: z.array(KeyPointSchema),
 	sourcesAnalyzed: z.number(),
+	/** All sources returned by search, in fetch order, with citation stats. */
+	sourceUsage: z.array(SourceUsageSchema),
 	generatedAt: z.string().datetime(),
 	/** True when the Firecrawl search response was served from disk cache (not full-run cache). */
 	cacheHit: z.boolean().default(false),
