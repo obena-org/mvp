@@ -11,6 +11,8 @@ export const PASS1_BU_V = 'v1';
 export const PASS2_BU_V = 'v1';
 export const PASS1_TD_V = 'v1';
 export const PASS2_TD_V = 'v1';
+export const TAX_PASS1_V = 'v1';
+export const TAX_PASS2_V = 'v1';
 
 const _CONTENT_LIMIT = 6_000;
 
@@ -68,6 +70,87 @@ these articles.
 Each key point title must state a position (e.g. "Diplomatic engagement is the only \
 viable path"), not a neutral topic category. Cover the range of perspectives \
 present, including minority views.`;
+}
+
+export function pass1Taxonomy(source: Source, query: string): string {
+	const metaParts = [
+		source.title ? `Title: ${source.title}` : null,
+		source.author ? `Author: ${source.author}` : null,
+		source.outlet ? `Outlet: ${source.outlet}` : null,
+		`URL: ${source.url}`,
+	].filter(Boolean);
+	const meta = metaParts.join('\n');
+
+	return `You are extracting structured argument units from an op-ed or news commentary.
+
+We are analyzing commentary about: "${query}".
+
+${meta}
+
+Article:
+${source.content.slice(0, 6_000)}
+
+Extract all substantive argumentative claims. Aim for 4–10 units per article. \
+Prioritize CENTRAL units; include SUPPORTING ones that add meaningful depth. \
+If the article contains no usable argument content, return an empty units array.
+
+Classify each unit by argument type using this decision order:
+1. Mainly says what should be done → PROPOSAL_PRESCRIPTION
+2. Mainly judges a person or institution → ACTOR_APPRAISAL
+3. Mainly about legality / authority / process → LEGAL_PROCEDURAL
+4. Mainly predicts effects or consequences → CONSEQUENCE_FORECAST
+5. Mainly defines what the problem really is → PROBLEM_FRAMING
+6. Mainly assigns causes or blame → DIAGNOSTIC_CAUSAL
+7. Mainly a moral / fairness / legitimacy judgment → NORMATIVE_EVALUATIVE
+8. Mainly accepts a proposal but argues over how to design/implement it → IMPLEMENTATION_DESIGN
+9. Disputes underlying facts → FACTUAL_PREMISE_DISPUTE
+
+Disambiguation:
+- PROBLEM_FRAMING defines scope/scale/who is affected. "The real fight is deterrence, not regime change."
+- NORMATIVE_EVALUATIVE says something is good/bad/just/reckless. "Preventive war is morally indefensible."
+- If a claim does two jobs (reframes AND judges), use the primary type and set secondaryType.
+
+Position values by argType:
+- PROPOSAL_PRESCRIPTION / IMPLEMENTATION_DESIGN: for | against | for-with-conditions | \
+for-in-principle-against-current | prefer-alternative | unclear | mixed
+- ACTOR_APPRAISAL: positive | negative | mixed | comparative
+- FACTUAL_PREMISE_DISPUTE: affirms-premise | denies-premise | reframes-premise | uncertainty-too-high
+- NORMATIVE_EVALUATIVE: just | unjust | prudent | imprudent | legitimate | illegitimate
+
+Evidence styles: moral | empirical | legal | historical-analogy | expert-authority | procedural | strategic`;
+}
+
+export function pass2Taxonomy(query: string, compressedUnitsJson: string): string {
+	return `You are synthesizing argument units extracted from op-ed sources about "${query}".
+
+Below are compressed structural hints from all extracted units (indexed 0-based):
+
+${compressedUnitsJson}
+
+Your task:
+1. Identify canonical Issue nodes (distinct controversy areas with hierarchy).
+2. Identify canonical Proposal nodes (distinct candidate actions with bundle structure).
+3. Assign each unit (by index) to its canonical issue and/or proposal.
+
+Issue organization rules:
+- MERGE when op-eds treat two framings as the same decision.
+- PARENT-CHILD: when one is a broader problem and the other is a specific lever.
+- SIBLING: alternative responses to the same root problem.
+- SPLIT: when op-eds disagree on different objects (policy vs. legality vs. actor fitness).
+- For linked side-issues, use linkedIssues with relationType: \
+SIBLING | LINKED_LEGALITY | LINKED_ACTOR | LINKED_PROCESS | LINKED_CONSEQUENCE | CLUSTER.
+
+Proposal rules:
+- Bias toward MORE proposals + MORE linking rather than aggressive merging.
+- "Ceasefire", "off-ramp", and "pause escalation" should usually remain distinct unless \
+the sources explicitly treat them identically.
+- Set isBundle=true when a plan has separable components.
+- For bundles, create component proposals with parentTempId pointing to the bundle.
+
+For each unit linkage, set issueLinkConfidence:
+- HIGH: issue is explicit in the source text
+- MEDIUM: likely correct, one clear candidate
+- LOW: plausible but uncertain, multiple candidates`;
 }
 
 export function pass2TopDown(

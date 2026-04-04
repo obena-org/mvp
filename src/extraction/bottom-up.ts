@@ -18,6 +18,7 @@ import type { KeyPoint, OnProgress, Source } from '../models.js';
 import { KeyPointSchema, QuoteSchema } from '../models.js';
 import { PASS1_BU_V, PASS2_BU_V, pass1BottomUp, pass2BottomUp } from '../prompts.js';
 import { type Settings, getSettings } from '../settings.js';
+import { callClaude } from './_shared.js';
 
 function _hash(...parts: string[]): string {
 	return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
@@ -42,61 +43,6 @@ const Pass2ResultSchema = z.object({
 	),
 });
 
-// ── Claude helper ──────────────────────────────────────────────────────────────
-
-function _zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-	// Minimal JSON Schema extraction — sufficient for Anthropic tool_use.
-	// For production use, consider zod-to-json-schema package.
-	const def = schema._def;
-	if (def.typeName === 'ZodObject') {
-		const shape = def.shape();
-		const properties: Record<string, unknown> = {};
-		const required: string[] = [];
-		for (const [k, v] of Object.entries(shape)) {
-			properties[k] = _zodToJsonSchema(v as z.ZodTypeAny);
-			if (!(v as z.ZodTypeAny).isOptional()) required.push(k);
-		}
-		return { type: 'object', properties, required };
-	}
-	if (def.typeName === 'ZodArray') {
-		return { type: 'array', items: _zodToJsonSchema(def.type) };
-	}
-	if (def.typeName === 'ZodString') return { type: 'string' };
-	if (def.typeName === 'ZodNullable' || def.typeName === 'ZodOptional') {
-		return _zodToJsonSchema(def.innerType);
-	}
-	return {};
-}
-
-async function _callClaude(
-	client: Anthropic,
-	prompt: string,
-	toolName: string,
-	toolDescription: string,
-	schema: z.ZodTypeAny,
-	settings: Settings,
-): Promise<Record<string, unknown>> {
-	const response = await client.messages.create({
-		model: settings.claudeModel,
-		max_tokens: 4096,
-		tools: [
-			{
-				name: toolName,
-				description: toolDescription,
-				input_schema: _zodToJsonSchema(schema) as Anthropic.Tool['input_schema'],
-			},
-		],
-		tool_choice: { type: 'tool', name: toolName },
-		messages: [{ role: 'user', content: prompt }],
-	});
-
-	const block = response.content.find((b) => b.type === 'tool_use');
-	if (!block || block.type !== 'tool_use') {
-		throw new Error('Claude did not return a tool_use block');
-	}
-	return block.input as Record<string, unknown>;
-}
-
 // ── Pass 1 ────────────────────────────────────────────────────────────────────
 
 async function _pass1One(
@@ -117,7 +63,7 @@ async function _pass1One(
 	}
 
 	try {
-		const result = await _callClaude(
+		const result = await callClaude(
 			client,
 			pass1BottomUp(source),
 			'submit_quotes',
@@ -172,7 +118,7 @@ async function _pass2(
 		}
 	}
 
-	const result = await _callClaude(
+	const result = await callClaude(
 		client,
 		pass2BottomUp(query, JSON.stringify(candidates, null, 2)),
 		'submit_key_points',

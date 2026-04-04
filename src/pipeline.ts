@@ -4,7 +4,9 @@
  */
 
 import { type KPACache, getCache, saveHistory } from './cache.js';
+import { persistTaxonomy } from './db.js';
 import { extract as extractBottomUp } from './extraction/bottom-up.js';
+import { extractTaxonomy } from './extraction/taxonomy.js';
 import { extract as extractTopDown } from './extraction/top-down.js';
 import { searchSources } from './fetcher.js';
 import { log } from './logger.js';
@@ -18,6 +20,7 @@ import {
 	type SourceUsage,
 } from './models.js';
 import { type Settings, getSettings } from './settings.js';
+import type { ArgGraphSummary } from './taxonomy-models.js';
 
 /**
  * For each quote, if its URL matches a fetched source, prefer that source's
@@ -72,9 +75,14 @@ export async function runKpa(
 	strategy: 'bottom-up' | 'top-down' = 'bottom-up',
 	numSources?: number,
 	forceRefresh = false,
-	opts: { cache?: KPACache; settings?: Settings; onProgress?: OnProgress } = {},
+	opts: {
+		cache?: KPACache;
+		settings?: Settings;
+		onProgress?: OnProgress;
+		onArgGraph?: (graph: ArgGraphSummary) => void;
+	} = {},
 ): Promise<KPAResult> {
-	const { onProgress } = opts;
+	const { onProgress, onArgGraph } = opts;
 	const cache = opts.cache ?? getCache();
 	const settings = opts.settings ?? getSettings();
 	const n = numSources ?? settings.numSources;
@@ -119,14 +127,20 @@ export async function runKpa(
 	onProgress?.({ type: 'status', phase: 'processing', message: 'Processing sources…' });
 
 	const extractor = strategy === 'bottom-up' ? extractBottomUp : extractTopDown;
-	const keyPoints = applySourceAttribution(
-		await extractor(sources, query, forceRefresh, {
+
+	// Run key-point extraction and (if requested) taxonomy extraction in parallel.
+	const [rawKeyPoints, taxonomyExtraction] = await Promise.all([
+		extractor(sources, query, forceRefresh, {
 			cache,
 			settings,
 			...(onProgress !== undefined && { onProgress }),
 		}),
-		sources,
-	);
+		onArgGraph !== undefined
+			? extractTaxonomy(sources, query, strategy, n, forceRefresh, { cache, settings })
+			: Promise.resolve(null),
+	]);
+
+	const keyPoints = applySourceAttribution(rawKeyPoints, sources);
 
 	const result = KPAResultSchema.parse({
 		query,
@@ -138,6 +152,16 @@ export async function runKpa(
 		searchFetchedAt: searchFetchedAt.toISOString(),
 		cacheHit: searchCacheHit,
 	});
+
+	// Persist taxonomy to DB and fire callback (non-blocking on DB errors)
+	if (onArgGraph !== undefined && taxonomyExtraction !== null) {
+		try {
+			const argGraph = await persistTaxonomy(taxonomyExtraction);
+			onArgGraph(argGraph);
+		} catch (err) {
+			log.warn({ err }, 'taxonomy_persist_failed');
+		}
+	}
 
 	log.info({ query, nKeyPoints: keyPoints.length }, 'pipeline_complete');
 	try {

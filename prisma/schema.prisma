@@ -1,0 +1,445 @@
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║  OBENA KPA — Argument Graph Schema                                          ║
+// ║  Implements: docs/op-ed-taxonomy.md                                         ║
+// ║  Design rationale: docs/_history/2026-04-04-taxonomy-schema.md              ║
+// ║  Query strategy:   docs/taxonomy-query-strategy.md                          ║
+// ║  Display design:   docs/taxonomy-display-design.md                          ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+//
+// Prisma 7 note: datasource URL is configured in prisma.config.ts, not here.
+// PrismaClient initialization requires an adapter — see prisma.config.ts comments.
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── SearchRun ────────────────────────────────────────────────────────────────
+// One pipeline execution for a query. Anchors all ArgumentUnits and Issues
+// produced by that run. Replaces the flat query_history.json file.
+
+model SearchRun {
+  id         String   @id @default(cuid())
+  query      String
+  strategy   String   // "bottom-up" | "top-down"
+  numSources Int
+  createdAt  DateTime @default(now())
+
+  issues        Issue[]
+  proposals     Proposal[]
+  argumentUnits ArgumentUnit[]
+}
+
+// ─── Issue ────────────────────────────────────────────────────────────────────
+// The real-world controversy or problem area public debate is "about."
+// NOT a topic tag — it is a node in an argument graph with typed relations.
+// See taxonomy §Issue node for field semantics.
+//
+// Cross-run issue identity is weak by default: treat each SearchRun's issue
+// graph as locally canonical. Global canonicalization is a separate future layer.
+
+model Issue {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+
+  // Tagging dimensions (taxonomy §Suggested tagging dimensions)
+  domain      String?     // free-form: foreign-policy | macroeconomics | local-development | …
+  geography   String?     // e.g. "United States", "New York City"
+  timeHorizon TimeHorizon?
+  arena       String?     // Congress | White-House | Fed | city-council | court | ballot | market | …
+  status      IssueStatus @default(ACTIVE)
+
+  // Hierarchy: parent–child links model "broader problem vs. lever" (taxonomy §2)
+  parentId String?
+  parent   Issue?  @relation("IssueHierarchy", fields: [parentId], references: [id])
+  children Issue[] @relation("IssueHierarchy")
+
+  // Typed cross-issue links (sibling, linked-legality, linked-actor, etc.)
+  relationsFrom IssueRelation[] @relation("IssueRelFrom")
+  relationsTo   IssueRelation[] @relation("IssueRelTo")
+
+  questions    Question[]
+  decisionObjs DecisionObject[]
+  proposals    Proposal[]
+  arguments    ArgumentUnit[]
+
+  searchRunId String?
+  searchRun   SearchRun? @relation(fields: [searchRunId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum IssueStatus {
+  ACTIVE
+  PENDING_DECISION
+  IMPLEMENTED
+  LITIGATED
+  HISTORICAL
+  DORMANT
+}
+
+// Typed link between two Issue nodes (taxonomy §Relation edge, issue-graph rules §3–5)
+model IssueRelation {
+  id           String            @id @default(cuid())
+  relationType IssueRelationType
+  fromId       String
+  from         Issue             @relation("IssueRelFrom", fields: [fromId], references: [id])
+  toId         String
+  to           Issue             @relation("IssueRelTo", fields: [toId], references: [id])
+}
+
+enum IssueRelationType {
+  SIBLING              // alternative responses to the same root problem
+  LINKED_LEGALITY      // one issue is the legality/authority dimension of another
+  LINKED_ACTOR         // one issue is the actor-fitness dimension of another
+  LINKED_PROCESS       // one issue is the procedural/legitimacy dimension of another
+  LINKED_CONSEQUENCE   // one issue tracks the consequences of another
+  CLUSTER              // both belong to the same recurring issue complex
+}
+
+// ─── Question ─────────────────────────────────────────────────────────────────
+// A specific debatable prompt nested under an Issue. Op-eds within a cluster
+// often answer different questions even under the same headline topic.
+// Example: "What should be done about inflation?" vs "What should the Fed do with rates?"
+//
+// v1 note: treat Question as an optional organizing label; do not force units
+// into questions when the debatable prompt is unclear.
+
+model Question {
+  id        String         @id @default(cuid())
+  text      String
+  issueId   String
+  issue     Issue          @relation(fields: [issueId], references: [id])
+  arguments ArgumentUnit[]
+  proposals Proposal[]
+}
+
+// ─── DecisionObject ───────────────────────────────────────────────────────────
+// A concrete official artifact where a choice is or will be recorded.
+// Conceptually distinct from the issue that frames it (taxonomy Rule 7).
+
+model DecisionObject {
+  id         String     @id @default(cuid())
+  title      String
+  objectType String     // bill | ballot | docket | order | case | plan
+  url        String?
+  issueId    String
+  issue      Issue      @relation(fields: [issueId], references: [id])
+  proposals  Proposal[]
+}
+
+// ─── Proposal ─────────────────────────────────────────────────────────────────
+// A candidate action or answer. May be a single proposal or a bundle with
+// components (taxonomy §Bundled proposals). Ends and means are first-class
+// (taxonomy Rule 4): someone may share the end but reject the means.
+//
+// Bias toward more proposals + more linking rather than aggressive merging
+// (risk: false equivalence between "ceasefire," "off-ramp," "pause escalation").
+
+model Proposal {
+  id          String         @id @default(cuid())
+  title       String
+  actionVerb  String?        // raise | cut | approve | launch | negotiate | …
+  actorName   String?        // who is responsible for taking this action
+  scope       String?
+  timeHorizon TimeHorizon?
+  status      ProposalStatus @default(HYPOTHETICAL)
+  isBundle    Boolean        @default(false)
+
+  // Ends and means (taxonomy §Proposal node — first-class fields)
+  // Stored as pipe-separated strings; split on "|" in application code.
+  // v2: consider a ProposalEnd join table if analytical queries on ends become common.
+  claimedEnds  String?       // e.g. "deterrence|stability|affordability"
+  proposedMeans String?      // the instrument advocated
+  opposedMeans  String?      // instrument the author rejects (may share the end)
+  altMeans      String?      // substituted path to same or revised end
+
+  // Bundle hierarchy (taxonomy §Bundled proposals)
+  parentId   String?
+  parent     Proposal?  @relation("BundleHierarchy", fields: [parentId], references: [id])
+  components Proposal[] @relation("BundleHierarchy")
+
+  // Placement in issue graph
+  issueId          String?
+  issue            Issue?          @relation(fields: [issueId], references: [id])
+  questionId       String?
+  question         Question?       @relation(fields: [questionId], references: [id])
+  decisionObjectId String?
+  decisionObject   DecisionObject? @relation(fields: [decisionObjectId], references: [id])
+
+  url String? // link to official source page (bill text, plan doc, etc.)
+
+  arguments     ArgumentUnit[]
+  relationsFrom RelationEdge[] @relation("EdgeFromProposal")
+  relationsTo   RelationEdge[] @relation("EdgeToProposal")
+
+  searchRunId String?
+  searchRun   SearchRun? @relation(fields: [searchRunId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+enum ProposalStatus {
+  HYPOTHETICAL   // discussed but not formally introduced
+  ADVOCATED      // op-ed authors pushing for it
+  INTRODUCED     // formally introduced (bill filed, plan published)
+  ON_BALLOT      // put to a vote
+  UNDER_REVIEW   // pending decision by the relevant institution
+  ADOPTED        // decided / approved
+  IMPLEMENTED    // in effect
+  BLOCKED        // rejected or stalled
+}
+
+// ─── ArgumentUnit ─────────────────────────────────────────────────────────────
+// The atomic claim extracted from an op-ed. The primary analysis object.
+// See taxonomy §Argument unit for full field semantics.
+
+model ArgumentUnit {
+  id String @id @default(cuid())
+
+  // Source attribution
+  sourceUrl   String
+  sourceTitle String?
+  author      String?
+  outlet      String?
+
+  // Content
+  textSpan     String // direct quote or minimal close paraphrase from the source
+  claimSummary String // one-sentence normalized summary of the claim
+
+  // ── Taxonomy classification ───────────────────────────────────────────────
+  // argType follows the decision tree (docs/op-ed-taxonomy.md §Decision tree).
+  // secondaryType: only when a claim genuinely spans two categories (Rule 6).
+  argType       ArgType
+  secondaryType ArgType?
+
+  // claimRole: rhetorical function within the source piece
+  // centrality: how central this unit is to the op-ed's argument
+  claimRole  ClaimRole
+  centrality Centrality
+
+  // ── Position / stance ─────────────────────────────────────────────────────
+  // Enum covers all taxonomy position schemas (§Position schema).
+  // Valid values depend on argType — see taxonomy doc for which values apply.
+  position PositionValue?
+
+  // ── Evidence and uncertainty ──────────────────────────────────────────────
+  evidenceStyle EvidenceStyle?
+  // factualUncertainty: only for H (FACTUAL_PREMISE_DISPUTE) and grounding claims
+  factualUncertainty      String?  // low | medium | high
+  // interpretivelyAmbiguous: is the author's position itself hard to pin down?
+  // Separate from factual uncertainty (taxonomy §Argument unit — do not collapse).
+  interpretivelyAmbiguous Boolean @default(false)
+
+  // ── Target actor (for J — ACTOR_APPRAISAL) ───────────────────────────────
+  targetActorName String?
+  targetActorType ActorType?
+
+  // ── Tagging dimensions ────────────────────────────────────────────────────
+  domain        String?     // free-form: foreign-policy | macroeconomics | …
+  normativeAxis String?     // free-form: justice | prudence | democracy | security | …
+  timeHorizon   TimeHorizon?
+  affectedGroup String?     // free-form: workers | residents | taxpayers | …
+  geoScope      GeoScope?
+
+  // ── Placement in issue graph ──────────────────────────────────────────────
+  issueId    String?
+  issue      Issue?    @relation(fields: [issueId], references: [id])
+  questionId String?
+  question   Question? @relation(fields: [questionId], references: [id])
+  proposalId String?
+  proposal   Proposal? @relation(fields: [proposalId], references: [id])
+
+  // ── Synthesis provenance (for display transparency + calibration) ─────────
+  // Raw hints from Pass 1; the canonical nodes chosen by Pass 2 are in issueId/proposalId.
+  issueHint    String?    // e.g. "U.S.-Iran war" — as extracted by Pass 1
+  proposalHint String?    // e.g. "seek ceasefire" — as extracted by Pass 1
+  // How confident is the Pass 2 synthesis in the issue/proposal linkage?
+  // LOW = plausible but uncertain; MEDIUM = likely correct; HIGH = explicit in source
+  issueLinkConfidence    LinkConfidence?
+  proposalLinkConfidence LinkConfidence?
+
+  // Relation edges to/from other argument units or proposals
+  relationsFrom RelationEdge[] @relation("EdgeFromUnit")
+  relationsTo   RelationEdge[] @relation("EdgeToUnit")
+
+  searchRunId String?
+  searchRun   SearchRun? @relation(fields: [searchRunId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ── ArgType enum ──────────────────────────────────────────────────────────────
+// Full 12-type ontology (taxonomy §Top-level taxonomy of argument object types).
+// v1 operational set (first 9) is sufficient for initial extraction prompts.
+// TRADEOFF_BALANCING, COALITION_STRATEGY, META_DISCURSIVE are defined here
+// to avoid a future migration; defer from extraction prompts until calibrated.
+
+enum ArgType {
+  PROBLEM_FRAMING         // A — what the issue really is; scope, scale, who is affected
+  DIAGNOSTIC_CAUSAL       // B — why the problem exists; root cause, contributing factor, blame
+  NORMATIVE_EVALUATIVE    // C — good/bad/just/fair/legitimate/prudent/humane judgments
+  PROPOSAL_PRESCRIPTION   // D — what should be done; single proposal or bundle
+  IMPLEMENTATION_DESIGN   // E — accepts broad proposal, argues over how to design/implement it
+  CONSEQUENCE_FORECAST    // F — what will happen; intended benefit, unintended consequence, spillover
+  FACTUAL_PREMISE_DISPUTE // H — disputes the underlying facts other arguments depend on
+  LEGAL_PROCEDURAL        // I — authority, legality, due process, international law
+  ACTOR_APPRAISAL         // J — character/judgment/motives/competence/fitness of a person or institution
+  // v2 — add to extraction prompts after v1 calibration:
+  TRADEOFF_BALANCING      // G — two or more goods cannot all be maximized at once
+  COALITION_STRATEGY      // K — political possibility, constituency alignment, bargaining leverage
+  META_DISCURSIVE         // L — how the debate itself is being conducted or distorted
+}
+
+enum ClaimRole {
+  CORE_THESIS
+  SUPPORTING_REASON
+  REBUTTAL
+  CONCESSION
+  ANALOGY
+  ILLUSTRATIVE_EXAMPLE
+}
+
+enum Centrality {
+  CENTRAL    // the unit is load-bearing for the piece's main argument
+  SUPPORTING // adds weight or context but is not the primary claim
+  PERIPHERAL // a secondary or incidental point
+}
+
+// ── PositionValue enum ────────────────────────────────────────────────────────
+// Covers all taxonomy position schemas (§Position schema).
+// The argType field determines which subset of values is semantically valid.
+enum PositionValue {
+  // For proposals (D, E):
+  FOR
+  AGAINST
+  FOR_WITH_CONDITIONS
+  FOR_IN_PRINCIPLE_AGAINST_CURRENT  // "pro-housing, anti-this-project"
+  PREFER_ALTERNATIVE
+  // For actor appraisal (J):
+  POSITIVE
+  NEGATIVE
+  COMPARATIVE                        // "better than the alternative"
+  // For factual disputes (H):
+  AFFIRMS_PREMISE
+  DENIES_PREMISE
+  REFRAMES_PREMISE
+  UNCERTAINTY_TOO_HIGH
+  // For normative claims (C):
+  JUST
+  UNJUST
+  PRUDENT
+  IMPRUDENT
+  LEGITIMATE
+  ILLEGITIMATE
+  DEMOCRATIC
+  UNDEMOCRATIC
+  HUMANE
+  INHUMANE
+  // General (any type):
+  MIXED
+  UNCLEAR
+}
+
+// ── EvidenceStyle enum ────────────────────────────────────────────────────────
+enum EvidenceStyle {
+  MORAL              // appeals to ethical principles or values
+  EMPIRICAL          // cites data, statistics, research
+  LEGAL              // cites statutes, precedent, constitutional text
+  HISTORICAL_ANALOGY // draws on a past case to illuminate the present
+  EXPERT_AUTHORITY   // defers to credentialed expert consensus
+  PROCEDURAL         // argues from process, norms, or institutional rules
+  STRATEGIC          // argues from interests, incentives, or power dynamics
+}
+
+// ── TimeHorizon enum ──────────────────────────────────────────────────────────
+enum TimeHorizon {
+  IMMEDIATE  // days to weeks
+  NEAR_TERM  // weeks to months
+  LONG_TERM  // years or more
+}
+
+// ── GeoScope enum ─────────────────────────────────────────────────────────────
+enum GeoScope {
+  LOCAL
+  NATIONAL
+  REGIONAL
+  GLOBAL
+}
+
+// ── ActorType enum ────────────────────────────────────────────────────────────
+enum ActorType {
+  PERSON
+  INSTITUTION
+}
+
+// ── LinkConfidence enum ───────────────────────────────────────────────────────
+// Confidence in a Pass 2 synthesis linkage (unit → issue, unit → proposal).
+enum LinkConfidence {
+  LOW    // plausible assignment but uncertain; multiple candidates
+  MEDIUM // likely correct; one clear candidate
+  HIGH   // explicit in source; no ambiguity
+}
+
+// ─── RelationEdge ─────────────────────────────────────────────────────────────
+// Typed directed link between any two of: ArgumentUnit, Proposal.
+// Exactly one of (fromUnitId, fromProposalId) and one of (toUnitId, toProposalId)
+// must be non-null; the remaining two must be null. Enforce in app code.
+// See taxonomy §Relation edge for the full ontology.
+
+model RelationEdge {
+  id      String       @id @default(cuid())
+  relType RelationType
+
+  fromUnitId     String?
+  fromUnit       ArgumentUnit? @relation("EdgeFromUnit", fields: [fromUnitId], references: [id])
+  fromProposalId String?
+  fromProposal   Proposal?     @relation("EdgeFromProposal", fields: [fromProposalId], references: [id])
+
+  toUnitId     String?
+  toUnit       ArgumentUnit? @relation("EdgeToUnit", fields: [toUnitId], references: [id])
+  toProposalId String?
+  toProposal   Proposal?     @relation("EdgeToProposal", fields: [toProposalId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+// ── RelationType enum ─────────────────────────────────────────────────────────
+// v1 core set (first 11): reliable enough to extract from the start.
+// v2 additions: more interpretive; defer until an evaluation harness exists.
+// Avoid SAME_END_AS, DIFFERENT_END_THAN, ADVANCES_END, UNDERMINES_END in v1 —
+// these require intent inference that current extraction cannot reliably produce.
+
+enum RelationType {
+  // v1 core:
+  SUPPORTS
+  OPPOSES
+  QUALIFIES                  // adds conditions or caveats
+  REBUTS                     // directly counters a specific claim
+  CONCEDES                   // grants a point against one's own position
+  PARENT_CHILD               // hierarchical containment
+  SIBLING                    // alternative responses to the same root problem
+  COMPONENT_OF               // sub-proposal within a bundle
+  ALTERNATIVE_TO             // different means, same or similar end
+  DEPENDS_ON_FACTUAL_PREMISE // claim is valid only if a stated fact holds
+  ANSWERS_QUESTION           // unit/proposal is a response to a specific debate prompt
+  // v2 additions (require evaluation harness before production use):
+  ASSUMES
+  PREDICTS_CONSEQUENCE_OF
+  ABOUT_LEGITIMACY_OF
+  ABOUT_ACTOR_FITNESS
+  SHARES_ROOT_PROBLEM
+  ADVANCES_END
+  UNDERMINES_END
+  USES_MEANS
+  REJECTS_MEANS
+  SAME_END_AS
+  DIFFERENT_END_THAN
+  DIFFERENT_ABSTRACTION_LEVEL
+  INSTANTIATES
+}

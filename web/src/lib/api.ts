@@ -7,6 +7,7 @@
  */
 
 import type {
+	ArgGraphSummary,
 	HistoryEntry,
 	KPAErrorResponse,
 	KPARequest,
@@ -16,7 +17,7 @@ import type {
 
 export interface StreamKpaCallbacks {
 	onProgress: (event: ProgressEvent) => void;
-	onComplete: (result: KPAResult) => void;
+	onComplete: (result: KPAResult, argGraph?: ArgGraphSummary) => void;
 	onError: (message: string) => void;
 }
 
@@ -39,7 +40,7 @@ export function streamKpa(req: KPARequest, callbacks: StreamKpaCallbacks): () =>
 		}
 		if (event.type === 'complete' || event.type === 'cache-hit') {
 			es.close();
-			callbacks.onComplete(event.result);
+			callbacks.onComplete(event.result, event.type === 'complete' ? event.argGraph : undefined);
 		} else if (event.type === 'error') {
 			es.close();
 			callbacks.onError(event.message);
@@ -85,4 +86,14 @@ export async function fetchKpa(req: KPARequest): Promise<KPAResult> {
 	}
 
 	return res.json() as Promise<KPAResult>;
+}
+
+export async function fetchArgGraph(runId: string): Promise<ArgGraphSummary | null> {
+	try {
+		const res = await fetch(`/api/kpa/run/${runId}`);
+		if (!res.ok) return null;
+		return res.json() as Promise<ArgGraphSummary>;
+	} catch {
+		return null;
+	}
 }

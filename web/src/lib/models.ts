@@ -1,6 +1,6 @@
 /**
- * Plain TypeScript interfaces mirroring src/models.ts (Zod schemas).
- * These are the only types imported by the SvelteKit client — no Zod runtime in the browser.
+ * Plain TypeScript interfaces mirroring src/models.ts (Zod schemas) and
+ * src/taxonomy-models.ts. No Zod runtime in the browser.
  */
 
 export interface Quote {
@@ -58,9 +58,62 @@ export interface KPAErrorResponse {
 
 export type ProgressPhase = 'searching' | 'processing' | 'synthesizing';
 
+// ── Taxonomy / argument graph ─────────────────────────────────────────────────
+
+export interface IssueSummary {
+	id: string;
+	title: string;
+	description: string | null;
+	domain: string | null;
+	parentId: string | null;
+	status: string;
+}
+
+export interface ProposalSummary {
+	id: string;
+	title: string;
+	isBundle: boolean;
+	parentId: string | null;
+	status: string;
+	issueId: string | null;
+	actionVerb: string | null;
+	claimedEnds: string | null;
+	proposedMeans: string | null;
+}
+
+export interface ArgUnitSummary {
+	id: string;
+	argType: string;
+	claimSummary: string;
+	textSpan: string;
+	claimRole: string;
+	centrality: string;
+	position: string | null;
+	evidenceStyle: string | null;
+	issueId: string | null;
+	proposalId: string | null;
+	author: string | null;
+	outlet: string | null;
+	sourceUrl: string;
+	sourceTitle: string | null;
+	targetActorName: string | null;
+	issueLinkConfidence: string | null;
+	proposalLinkConfidence: string | null;
+}
+
+export interface ArgGraphSummary {
+	runId: string;
+	query: string;
+	issues: IssueSummary[];
+	proposals: ProposalSummary[];
+	argumentUnits: ArgUnitSummary[];
+}
+
+// ── Progress events ───────────────────────────────────────────────────────────
+
 export type ProgressEvent =
 	| { type: 'status'; phase: ProgressPhase; message: string }
 	| { type: 'source-done'; completed: number; total: number; url: string; ok: boolean }
 	| { type: 'cache-hit'; result: KPAResult }
-	| { type: 'complete'; result: KPAResult }
+	| { type: 'complete'; result: KPAResult; argGraph?: ArgGraphSummary }
 	| { type: 'error'; message: string };

@@ -4,8 +4,11 @@
  * In production:  tsx src/server.ts  (or pnpm start)
  * In dev:         pnpm dev:api  (API)  +  pnpm dev:web  (SvelteKit HMR)
  *
- * POST /api/kpa  — run the KPA pipeline, return KPAResult JSON.
- * GET  *         — serve web/build (SvelteKit static output).
+ * POST /api/kpa          — run the KPA pipeline, return KPAResult JSON.
+ * GET  /api/kpa/stream   — SSE: progress events + complete (with argGraph).
+ * GET  /api/kpa/history  — recent query history.
+ * GET  /api/kpa/run/:id  — fetch stored ArgGraphSummary for a run.
+ * GET  *                 — serve web/build (SvelteKit static output).
  */
 
 import { readFile } from 'node:fs/promises';
@@ -19,11 +22,13 @@ import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
 import { readHistory } from './cache.js';
+import { getArgGraph } from './db.js';
 import { pipeline } from './index.js';
 import { log } from './logger.js';
 import type { OnProgress } from './models.js';
 import { runKpa } from './pipeline.js';
 import { ConfigError, getSettings } from './settings.js';
+import type { ArgGraphSummary } from './taxonomy-models.js';
 
 const _ROOT = resolve(fileURLToPath(import.meta.url), '../../');
 const _WEB_BUILD = join(_ROOT, 'web/build');
@@ -49,6 +54,14 @@ const StreamQuerySchema = z.object({
 		.transform((v) => v === 'true'),
 });
 
+// ── SSE event types (server-side) ─────────────────────────────────────────────
+// Mirror of web/src/lib/models.ts ProgressEvent — kept in sync manually.
+type ServerSseEvent =
+	| { type: 'status'; phase: string; message: string }
+	| { type: 'source-done'; completed: number; total: number; url: string; ok: boolean }
+	| { type: 'complete'; result: unknown; argGraph?: ArgGraphSummary }
+	| { type: 'error'; message: string };
+
 const app = new Hono();
 
 app.get('/api/kpa/stream', (c) => {
@@ -66,10 +79,8 @@ app.get('/api/kpa/stream', (c) => {
 	log.info({ topic, strategy }, 'kpa stream request');
 
 	return streamSSE(c, async (stream) => {
-		// Serialised write queue — onProgress is synchronous but writeSSE is async.
-		// Queuing ensures ordering and prevents concurrent writes to the SSE stream.
 		let writeQueue = Promise.resolve<void>(undefined);
-		const send: OnProgress = (event) => {
+		const send = (event: ServerSseEvent) => {
 			writeQueue = writeQueue.then(async () => {
 				try {
 					await stream.writeSSE({ data: JSON.stringify(event) });
@@ -79,16 +90,25 @@ app.get('/api/kpa/stream', (c) => {
 			});
 		};
 
+		const onProgress: OnProgress = (event) => send(event as ServerSseEvent);
+		let capturedArgGraph: ArgGraphSummary | undefined;
+
 		try {
 			const result = await runKpa(topic, strategy ?? 'bottom-up', numSources, forceRefresh, {
-				onProgress: send,
+				onProgress,
+				onArgGraph: (graph) => {
+					capturedArgGraph = graph;
+				},
 			});
-			send({ type: 'complete', result });
+			send({
+				type: 'complete',
+				result,
+				...(capturedArgGraph !== undefined && { argGraph: capturedArgGraph }),
+			});
 		} catch (err) {
 			send({ type: 'error', message: err instanceof Error ? err.message : 'Pipeline failed' });
 		}
 
-		// Drain before the SSE stream closes.
 		await writeQueue;
 	});
 });
@@ -125,6 +145,18 @@ app.post('/api/kpa', async (c) => {
 
 app.get('/api/kpa/history', (c) => {
 	return c.json(readHistory(getSettings().cacheDir));
+});
+
+app.get('/api/kpa/run/:id', async (c) => {
+	const id = c.req.param('id');
+	try {
+		const graph = await getArgGraph(id);
+		if (!graph) return c.json({ error: 'Run not found' }, 404);
+		return c.json(graph);
+	} catch (err) {
+		log.error({ err, id }, 'getArgGraph failed');
+		return c.json({ error: 'Failed to load run' }, 500);
+	}
 });
 
 // Serve SvelteKit static build (CSS, JS, assets).

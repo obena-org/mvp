@@ -8,9 +8,11 @@ import { resolve } from 'node:path';
 
 import { Command } from 'commander';
 
-import { printResult } from './display.js';
+import { printArgGraph, printResult } from './display.js';
 import { pipeline } from './index.js';
+import { runKpa } from './pipeline.js';
 import { ConfigError } from './settings.js';
+import type { ArgGraphSummary } from './taxonomy-models.js';
 
 function defaultOutPath(query: string, fmt: string): string {
 	const slug = query
@@ -30,19 +32,48 @@ program
 	.option('--strategy <strategy>', 'Extraction strategy: bottom-up or top-down', 'bottom-up')
 	.option('--num-sources <n>', 'Number of articles to fetch (default: from settings)', parseInt)
 	.option('--force-refresh', 'Bypass all cache reads and re-fetch/re-extract everything', false)
-	.option('--output <format>', 'Output format: pretty or json', 'pretty')
+	.option('--output <format>', 'Output format: pretty, taxonomy, or json', 'pretty')
 	.option(
 		'--out [path]',
 		'Write to file instead of stdout; omit path for auto /tmp/kpa-<slug>.<ext>',
 	)
 	.action(async (query: string, opts) => {
+		const isTaxonomy = opts.output === 'taxonomy';
+		const isJson = opts.output === 'json';
+
+		if (isTaxonomy) {
+			// Taxonomy mode: run pipeline with onArgGraph callback
+			let capturedGraph: ArgGraphSummary | undefined;
+			const result = await runKpa(query, opts.strategy, opts.numSources, opts.forceRefresh, {
+				onArgGraph: (g) => {
+					capturedGraph = g;
+				},
+			});
+
+			if (opts.out !== undefined) {
+				const outPath =
+					opts.out === true || opts.out === ''
+						? defaultOutPath(query, 'txt')
+						: resolve(opts.out as string);
+				const lines: string[] = [];
+				if (capturedGraph) printArgGraph(capturedGraph, (s) => lines.push(s));
+				else printResult(result, (s) => lines.push(s));
+				// eslint-disable-next-line no-control-regex
+				writeFileSync(outPath, lines.join('\n').replace(/\x1b\[[0-9;]*m/g, ''), 'utf8');
+				process.stderr.write(`Written to ${outPath}\n`);
+			} else if (capturedGraph) {
+				printArgGraph(capturedGraph);
+			} else {
+				printResult(result);
+			}
+			return;
+		}
+
 		const result = await pipeline(query, {
 			strategy: opts.strategy,
 			numSources: opts.numSources,
 			forceRefresh: opts.forceRefresh,
 		});
-
-		const isJson = opts.output === 'json';
 
 		if (opts.out !== undefined) {
 			const outPath =
@@ -55,7 +86,6 @@ program
 			} else {
 				const lines: string[] = [];
 				printResult(result, (s) => lines.push(s));
-				// Strip ANSI escape codes for file output
 				// eslint-disable-next-line no-control-regex
 				const plain = lines.join('\n').replace(/\x1b\[[0-9;]*m/g, '');
 				writeFileSync(outPath, plain, 'utf8');

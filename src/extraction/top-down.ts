@@ -23,6 +23,7 @@ import {
 } from '../models.js';
 import { PASS1_TD_V, PASS2_TD_V, pass1TopDown, pass2TopDown } from '../prompts.js';
 import { type Settings, getSettings } from '../settings.js';
+import { callClaude } from './_shared.js';
 
 function _hash(...parts: string[]): string {
 	return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 16);
@@ -42,59 +43,6 @@ const Pass2ResultSchema = z.object({
 		z.object({ title: z.string(), summary: z.string(), quotes: z.array(QuoteSchema) }),
 	),
 });
-
-// ── Claude helper (shared pattern with bottom-up) ──────────────────────────────
-
-function _zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-	const def = schema._def;
-	if (def.typeName === 'ZodObject') {
-		const shape = def.shape();
-		const properties: Record<string, unknown> = {};
-		const required: string[] = [];
-		for (const [k, v] of Object.entries(shape)) {
-			properties[k] = _zodToJsonSchema(v as z.ZodTypeAny);
-			if (!(v as z.ZodTypeAny).isOptional()) required.push(k);
-		}
-		return { type: 'object', properties, required };
-	}
-	if (def.typeName === 'ZodArray') {
-		return { type: 'array', items: _zodToJsonSchema(def.type) };
-	}
-	if (def.typeName === 'ZodString') return { type: 'string' };
-	if (def.typeName === 'ZodNullable' || def.typeName === 'ZodOptional') {
-		return _zodToJsonSchema(def.innerType);
-	}
-	return {};
-}
-
-async function _callClaude(
-	client: Anthropic,
-	prompt: string,
-	toolName: string,
-	toolDescription: string,
-	schema: z.ZodTypeAny,
-	settings: Settings,
-): Promise<Record<string, unknown>> {
-	const response = await client.messages.create({
-		model: settings.claudeModel,
-		max_tokens: 4096,
-		tools: [
-			{
-				name: toolName,
-				description: toolDescription,
-				input_schema: _zodToJsonSchema(schema) as Anthropic.Tool['input_schema'],
-			},
-		],
-		tool_choice: { type: 'tool', name: toolName },
-		messages: [{ role: 'user', content: prompt }],
-	});
-
-	const block = response.content.find((b) => b.type === 'tool_use');
-	if (!block || block.type !== 'tool_use') {
-		throw new Error('Claude did not return a tool_use block');
-	}
-	return block.input as Record<string, unknown>;
-}
 
 // ── Pass 1 ────────────────────────────────────────────────────────────────────
 
@@ -125,7 +73,7 @@ async function _pass1(
 		.map((s) => `[${s.outlet ?? s.url}] ${s.title ?? ''}\n${s.content.slice(0, _SUMMARY_LIMIT)}`)
 		.join('\n---\n');
 
-	const result = await _callClaude(
+	const result = await callClaude(
 		client,
 		pass1TopDown(query, summaries),
 		'submit_key_points',
@@ -180,7 +128,7 @@ async function _pass2(
 		)
 		.join('\n---\n');
 
-	const result = await _callClaude(
+	const result = await callClaude(
 		client,
 		pass2TopDown(query, kpsJson, articlesContent),
 		'submit_key_points_with_quotes',

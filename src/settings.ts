@@ -20,6 +20,10 @@ const SettingsSchema = z.object({
 	numSources: z.coerce.number().default(20),
 	claudeModel: z.string().default('claude-sonnet-4-6'),
 	port: z.coerce.number().default(3000),
+	databaseUrl: z
+		.string()
+		.default(resolve(_ROOT, 'prisma/dev.db'))
+		.transform((v) => (v.startsWith('file:') ? v : `file:${v}`)),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -46,6 +50,7 @@ function loadSettings(): Settings {
 		numSources: process.env['NUM_SOURCES'],
 		claudeModel: process.env['CLAUDE_MODEL'],
 		port: process.env['PORT'],
+		databaseUrl: process.env['DATABASE_URL'],
 	};
 	const result = SettingsSchema.safeParse(raw);
 	if (!result.success) {
