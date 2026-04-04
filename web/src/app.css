@@ -208,6 +208,34 @@
   [data-theme='dark'] .kpa-sources-panel .glass-inset {
     background: color-mix(in srgb, var(--color-bg2) 80%, transparent);
   }
+
+  /* History sidebar — mirror of kpa-sources-panel, rounded on the right side */
+  .kpa-history-panel {
+    @apply border shadow-sm;
+    border-radius: 0 1rem 1rem 0;
+    border-color: color-mix(in srgb, var(--color-bg1) 55%, rgba(255, 255, 255, 0.35));
+    background: var(--color-bg1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.35) inset,
+      0 8px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme='dark'] .kpa-history-panel {
+    border-color: color-mix(in srgb, var(--color-bg3) 40%, rgba(255, 255, 255, 0.08));
+    background: var(--color-bg1);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  .kpa-history-panel .glass-inset {
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-bg2) 88%, transparent);
+  }
+
+  [data-theme='dark'] .kpa-history-panel .glass-inset {
+    background: color-mix(in srgb, var(--color-bg2) 80%, transparent);
+  }
 }
 
 @keyframes ambient-blue {

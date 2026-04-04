@@ -1,9 +1,18 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { getContext, onDestroy, onMount } from 'svelte';
+  import { fly } from 'svelte/transition';
+  import { cubicOut } from 'svelte/easing';
   import { goto } from '$app/navigation';
-  import { streamKpa } from '$lib/api.js';
+  import { fetchHistory, streamKpa } from '$lib/api.js';
   import { portal } from '$lib/portal';
-  import type { KPAResult, ProgressPhase, SourceUsage } from '$lib/models';
+  import type { HistoryEntry, KPAResult, ProgressPhase, SourceUsage } from '$lib/models';
+
+  interface SidebarContext {
+    readonly open: boolean;
+    toggle(): void;
+    close(): void;
+  }
+  const sidebar = getContext<SidebarContext>('sidebar');
 
   let topic = $state('');
   let strategy = $state<'bottom-up' | 'top-down'>('bottom-up');
@@ -15,8 +24,18 @@
   let sourcesTotal = $state(0);
 
   let cancelStream: (() => void) | null = null;
+  let history = $state<HistoryEntry[]>([]);
+
+  function loadFromHistory(entry: HistoryEntry) {
+    topic = entry.query;
+    strategy = entry.strategy;
+    sidebar.close();
+    void submit();
+  }
 
   onMount(() => {
+    void fetchHistory().then((h: HistoryEntry[]) => { history = h; });
+
     const params = new URLSearchParams(window.location.search);
     const t = params.get('topic');
     if (t) {
@@ -67,6 +86,7 @@
           result = r;
           loading = false;
           cancelStream = null;
+          void fetchHistory().then((h: HistoryEntry[]) => { history = h; });
         },
         onError(msg) {
           error = msg;
@@ -144,6 +164,78 @@
 <svelte:head>
   <title>{result ? `${result.query} — OBENA KPA` : 'OBENA Key Points Analysis'}</title>
 </svelte:head>
+
+{#if sidebar.open}
+  <!-- Backdrop -->
+  <!-- Light scrim — no blur, matching sources panel backdrop treatment -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-40"
+    style="background: rgba(15, 23, 42, 0.08)"
+    onclick={() => sidebar.close()}
+  ></div>
+
+  <!-- Sidebar panel — mirrors Sources panel, slides in from left, full viewport height -->
+  <aside
+    class="kpa-history-panel fixed inset-y-0 left-0 z-50 flex w-72 flex-col"
+    aria-label="Recent queries"
+    transition:fly={{ x: -288, duration: 220, easing: cubicOut }}
+  >
+    <div class="flex shrink-0 items-start justify-between gap-3 border-b border-bg3/50 px-5 py-4">
+      <h2 class="font-montserrat text-lg font-semibold text-fg1">Recent</h2>
+      <button
+        onclick={() => sidebar.close()}
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-fg3 transition-colors hover:bg-bg2 hover:text-fg1"
+        aria-label="Close"
+      >
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    {#if history.length === 0}
+      <p class="px-5 py-6 text-sm italic text-fg4">No recent queries yet.</p>
+    {:else}
+      <ul class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        {#each history as entry (entry.query)}
+          <li class="mb-2.5 last:mb-0">
+            <button
+              type="button"
+              onclick={() => loadFromHistory(entry)}
+              class="glass-inset group relative block w-full overflow-hidden rounded-xl p-3 text-left
+                     no-underline transition-all duration-200 ease-out
+                     hover:border-accent/40 hover:shadow-md dark:hover:border-accent/35
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/45
+                     focus-visible:ring-offset-2 focus-visible:ring-offset-bg1"
+            >
+              <span
+                aria-hidden="true"
+                class="pointer-events-none absolute inset-0 rounded-[inherit] bg-transparent
+                       transition-colors duration-200 group-hover:bg-black/10 dark:group-hover:bg-white/10"
+              ></span>
+              <div class="relative z-10 flex min-w-0 items-center gap-3">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-semibold leading-snug text-fg1">{entry.query}</p>
+                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-fg4">
+                    <span>{entry.strategy}</span>
+                    <span>·</span>
+                    <span>{age(entry.searchFetchedAt)}</span>
+                  </div>
+                </div>
+                <div
+                  class="shrink-0 text-fg4 transition-colors group-hover:text-accent"
+                  aria-hidden="true"
+                >
+                  <i class="fa-solid fa-arrow-right text-sm"></i>
+                </div>
+              </div>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </aside>
+{/if}
 
 <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
   <!-- Search form -->

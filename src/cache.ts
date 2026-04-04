@@ -3,6 +3,8 @@
  * Mirrors rnd-kpa/src/rnd_kpa/cache.py.
  *
  * Entry format: { data: unknown, storedAt: ISO string, expiresAt?: ISO string }
+ *
+ * Also manages query_history.json — a flat log of recent KPA queries.
  */
 
 import { createHash } from 'node:crypto';
@@ -59,6 +61,48 @@ export class KPACache {
 		return storedAt;
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Query history
+// ---------------------------------------------------------------------------
+
+const _HISTORY_FILE = 'query_history.json';
+const _MAX_HISTORY = 50;
+
+export interface HistoryEntry {
+	query: string;
+	strategy: 'bottom-up' | 'top-down';
+	/** When the underlying search data was fetched (cache storedAt for hits, now for fresh). */
+	searchFetchedAt: string;
+}
+
+/** Prepend an entry to query_history.json, deduping by query text (case-insensitive). */
+export function saveHistory(cacheDir: string, entry: HistoryEntry): void {
+	mkdirSync(cacheDir, { recursive: true });
+	const path = join(cacheDir, _HISTORY_FILE);
+	let entries: HistoryEntry[] = [];
+	try {
+		entries = JSON.parse(readFileSync(path, 'utf8')) as HistoryEntry[];
+	} catch {
+		// file absent or corrupt — start fresh
+	}
+	const key = entry.query.trim().toLowerCase();
+	entries = entries.filter((e) => e.query.trim().toLowerCase() !== key);
+	entries = [entry, ...entries].slice(0, _MAX_HISTORY);
+	writeFileSync(path, JSON.stringify(entries), 'utf8');
+}
+
+/** Read query_history.json; returns [] if absent. */
+export function readHistory(cacheDir: string): HistoryEntry[] {
+	const path = join(cacheDir, _HISTORY_FILE);
+	try {
+		return JSON.parse(readFileSync(path, 'utf8')) as HistoryEntry[];
+	} catch {
+		return [];
+	}
+}
+
+// ---------------------------------------------------------------------------
 
 let _cache: KPACache | undefined;
 

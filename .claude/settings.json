@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -n '106,118p' /home/malbrecht/dev/mvp/src/pipeline.ts)",
+      "Bash(sed -n '143,152p' /home/malbrecht/dev/mvp/src/pipeline.ts)",
+      "Bash(git -C /home/malbrecht/dev/mvp add -A)",
+      "Bash(git -C /home/malbrecht/dev/mvp commit --amend --no-edit)"
+    ]
+  }
+}

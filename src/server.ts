@@ -18,6 +18,7 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
+import { readHistory } from './cache.js';
 import { pipeline } from './index.js';
 import { log } from './logger.js';
 import type { OnProgress } from './models.js';
@@ -120,6 +121,10 @@ app.post('/api/kpa', async (c) => {
 		log.error({ err, topic }, 'pipeline failed');
 		return c.json({ error: 'Pipeline failed' }, 500);
 	}
+});
+
+app.get('/api/kpa/history', (c) => {
+	return c.json(readHistory(getSettings().cacheDir));
 });
 
 // Serve SvelteKit static build (CSS, JS, assets).
