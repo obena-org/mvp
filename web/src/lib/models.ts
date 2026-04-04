@@ -31,6 +31,8 @@ export interface KPAResult {
 	sourcesAnalyzed: number;
 	sourceUsage: SourceUsage[];
 	generatedAt: string;
+	/** ISO time of Firecrawl search (or cached search entry). */
+	searchFetchedAt: string;
 	cacheHit: boolean;
 }
 

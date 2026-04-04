@@ -60,6 +60,7 @@ const MOCK_RESULT = {
 		},
 	],
 	generatedAt: new Date().toISOString(),
+	searchFetchedAt: new Date().toISOString(),
 	cacheHit: false,
 };
 

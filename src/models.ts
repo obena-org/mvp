@@ -49,6 +49,8 @@ export const KPAResultSchema = z.object({
 	/** All sources returned by search, in fetch order, with citation stats. */
 	sourceUsage: z.array(SourceUsageSchema),
 	generatedAt: z.string().datetime(),
+	/** When the Firecrawl search completed (or the search cache entry was written). */
+	searchFetchedAt: z.string().datetime(),
 	/** True when the Firecrawl search response was served from disk cache (not full-run cache). */
 	cacheHit: z.boolean().default(false),
 });
