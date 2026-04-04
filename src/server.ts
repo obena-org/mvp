@@ -15,10 +15,13 @@ import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
 import { pipeline } from './index.js';
 import { log } from './logger.js';
+import type { OnProgress } from './models.js';
+import { runKpa } from './pipeline.js';
 import { ConfigError, getSettings } from './settings.js';
 
 const _ROOT = resolve(fileURLToPath(import.meta.url), '../../');
@@ -35,7 +38,59 @@ const RequestSchema = z.object({
 		.optional(),
 });
 
+const StreamQuerySchema = z.object({
+	topic: z.string().min(1, 'topic must not be empty'),
+	strategy: z.enum(['bottom-up', 'top-down']).optional(),
+	numSources: z.coerce.number().int().positive().optional(),
+	forceRefresh: z
+		.enum(['true', 'false'])
+		.optional()
+		.transform((v) => v === 'true'),
+});
+
 const app = new Hono();
+
+app.get('/api/kpa/stream', (c) => {
+	const parsed = StreamQuerySchema.safeParse({
+		topic: c.req.query('topic'),
+		strategy: c.req.query('strategy'),
+		numSources: c.req.query('numSources'),
+		forceRefresh: c.req.query('forceRefresh'),
+	});
+	if (!parsed.success) {
+		return c.json({ error: 'Invalid request', details: parsed.error.flatten() }, 400);
+	}
+
+	const { topic, strategy, numSources, forceRefresh } = parsed.data;
+	log.info({ topic, strategy }, 'kpa stream request');
+
+	return streamSSE(c, async (stream) => {
+		// Serialised write queue — onProgress is synchronous but writeSSE is async.
+		// Queuing ensures ordering and prevents concurrent writes to the SSE stream.
+		let writeQueue = Promise.resolve<void>(undefined);
+		const send: OnProgress = (event) => {
+			writeQueue = writeQueue.then(async () => {
+				try {
+					await stream.writeSSE({ data: JSON.stringify(event) });
+				} catch {
+					// client disconnected — swallow
+				}
+			});
+		};
+
+		try {
+			const result = await runKpa(topic, strategy ?? 'bottom-up', numSources, forceRefresh, {
+				onProgress: send,
+			});
+			send({ type: 'complete', result });
+		} catch (err) {
+			send({ type: 'error', message: err instanceof Error ? err.message : 'Pipeline failed' });
+		}
+
+		// Drain before the SSE stream closes.
+		await writeQueue;
+	});
+});
 
 app.post('/api/kpa', async (c) => {
 	let body: unknown;

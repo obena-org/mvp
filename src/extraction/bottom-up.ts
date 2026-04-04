@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { type KPACache, getCache } from '../cache.js';
 import { log } from '../logger.js';
-import type { KeyPoint, Source } from '../models.js';
+import type { KeyPoint, OnProgress, Source } from '../models.js';
 import { KeyPointSchema, QuoteSchema } from '../models.js';
 import { PASS1_BU_V, PASS2_BU_V, pass1BottomUp, pass2BottomUp } from '../prompts.js';
 import { type Settings, getSettings } from '../settings.js';
@@ -193,16 +193,25 @@ export async function extract(
 	sources: Source[],
 	query: string,
 	forceRefresh = false,
-	opts: { cache?: KPACache; settings?: Settings } = {},
+	opts: { cache?: KPACache; settings?: Settings; onProgress?: OnProgress } = {},
 ): Promise<KeyPoint[]> {
+	const { onProgress } = opts;
 	const cache = opts.cache ?? getCache();
 	const settings = opts.settings ?? getSettings();
 	const client = new Anthropic({ apiKey: settings.anthropicApiKey });
 
-	// Pass 1 — parallel
+	const total = sources.length;
+	let completed = 0;
+
+	// Pass 1 — parallel; emit source-done as each settles
 	const pass1Results = (
 		await Promise.allSettled(
-			sources.map((src) => _pass1One(src, client, cache, forceRefresh, settings)),
+			sources.map(async (src) => {
+				const result = await _pass1One(src, client, cache, forceRefresh, settings);
+				completed += 1;
+				onProgress?.({ type: 'source-done', completed, total, url: src.url, ok: result !== null });
+				return result;
+			}),
 		)
 	)
 		.filter(
@@ -216,5 +225,6 @@ export async function extract(
 	}
 
 	// Pass 2 — synthesis
+	onProgress?.({ type: 'status', phase: 'synthesizing', message: 'Synthesising key points…' });
 	return _pass2(pass1Results, query, client, cache, forceRefresh, settings);
 }

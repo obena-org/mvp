@@ -1,14 +1,19 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { fetchKpa } from '$lib/api';
-  import type { KPAResult } from '$lib/models';
+  import { streamKpa } from '$lib/api.js';
+  import type { KPAResult, ProgressPhase } from '$lib/models';
 
   let topic = $state('');
   let strategy = $state<'bottom-up' | 'top-down'>('bottom-up');
   let loading = $state(false);
   let result = $state<KPAResult | null>(null);
   let error = $state<string | null>(null);
+  let progressPhase = $state<ProgressPhase | null>(null);
+  let sourcesCompleted = $state(0);
+  let sourcesTotal = $state(0);
+
+  let cancelStream: (() => void) | null = null;
 
   onMount(() => {
     const params = new URLSearchParams(window.location.search);
@@ -19,6 +24,10 @@
     }
   });
 
+  onDestroy(() => {
+    cancelStream?.();
+  });
+
   async function submit({ updateUrl = true } = {}) {
     const q = topic.trim();
     if (!q || loading) return;
@@ -26,6 +35,9 @@
     loading = true;
     error = null;
     result = null;
+    progressPhase = null;
+    sourcesCompleted = 0;
+    sourcesTotal = 0;
 
     if (updateUrl) {
       await goto(`?topic=${encodeURIComponent(q)}`, {
@@ -35,13 +47,33 @@
       });
     }
 
-    try {
-      result = await fetchKpa({ topic: q, options: { strategy } });
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Something went wrong';
-    } finally {
-      loading = false;
-    }
+    cancelStream = streamKpa(
+      { topic: q, options: { strategy } },
+      {
+        onProgress(event) {
+          if (event.type === 'status') {
+            progressPhase = event.phase;
+            if (event.phase === 'processing') {
+              sourcesCompleted = 0;
+              sourcesTotal = 0;
+            }
+          } else if (event.type === 'source-done') {
+            sourcesCompleted = event.completed;
+            sourcesTotal = event.total;
+          }
+        },
+        onComplete(r) {
+          result = r;
+          loading = false;
+          cancelStream = null;
+        },
+        onError(msg) {
+          error = msg;
+          loading = false;
+          cancelStream = null;
+        },
+      },
+    );
   }
 
   function age(isoString: string): string {
@@ -122,11 +154,34 @@
   <!-- Loading -->
   {#if loading}
     <div
-      class="flex items-center gap-3 rounded-xl border border-bg3 bg-bg1 px-5 py-4 text-sm text-fg3"
+      class="flex flex-col gap-2.5 rounded-xl border border-bg3 bg-bg1 px-5 py-4 text-sm text-fg3"
       aria-live="polite"
     >
-      <i class="fa-solid fa-circle-notch fa-spin text-accent"></i>
-      Fetching and analysing sources — this may take up to 30 seconds…
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-circle-notch fa-spin text-accent"></i>
+        <span>
+          {#if progressPhase === 'searching'}
+            Searching for sources…
+          {:else if progressPhase === 'processing'}
+            Processing sources…
+          {:else if progressPhase === 'synthesizing'}
+            Synthesising key points…
+          {:else}
+            Starting…
+          {/if}
+        </span>
+      </div>
+      {#if progressPhase === 'processing' && sourcesTotal > 0}
+        <div class="flex items-center gap-3 pl-6">
+          <div class="h-1 flex-1 overflow-hidden rounded-full bg-bg3">
+            <div
+              class="h-full rounded-full bg-accent transition-[width] duration-300"
+              style="width: {Math.round((sourcesCompleted / sourcesTotal) * 100)}%"
+            ></div>
+          </div>
+          <span class="tabular-nums text-xs text-fg4">{sourcesCompleted} / {sourcesTotal}</span>
+        </div>
+      {/if}
     </div>
   {/if}
 

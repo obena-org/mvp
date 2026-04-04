@@ -85,4 +85,19 @@ export default [
 			globals: { ...globals.node },
 		},
 	},
+	{
+		// Web SvelteKit source runs in the browser — grant browser globals.
+		files: ['web/**/*.ts', 'web/**/*.js'],
+		languageOptions: {
+			globals: { ...globals.browser },
+		},
+	},
+	{
+		// Playwright e2e tests run in Node.js, but addInitScript callbacks are
+		// serialised and executed in the browser — allow both global sets.
+		files: ['e2e/**/*.ts'],
+		languageOptions: {
+			globals: { ...globals.node, ...globals.browser },
+		},
+	},
 ];

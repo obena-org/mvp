@@ -37,3 +37,12 @@ export interface KPARequest {
 export interface KPAErrorResponse {
 	error: string;
 }
+
+export type ProgressPhase = 'searching' | 'processing' | 'synthesizing';
+
+export type ProgressEvent =
+	| { type: 'status'; phase: ProgressPhase; message: string }
+	| { type: 'source-done'; completed: number; total: number; url: string; ok: boolean }
+	| { type: 'cache-hit'; result: KPAResult }
+	| { type: 'complete'; result: KPAResult }
+	| { type: 'error'; message: string };
